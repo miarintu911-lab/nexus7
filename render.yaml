@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: nexus-ai-studio
+    runtime: node
+    plan: free
+    buildCommand: npm install --include=dev && npm run build
+    startCommand: npx tsx server.ts
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DISABLE_HMR
+        value: "true"
+      - key: NODE_OPTIONS
+        value: "--max-old-space-size=384"
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: APP_URL
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: TURSO_DATABASE_URL
+        sync: false
+      - key: TURSO_AUTH_TOKEN
+        sync: false
+      - key: BROWSERLESS_TOKEN
+        sync: false

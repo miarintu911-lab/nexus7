@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>কাস্টমার লেজার</title>
+    <style>
+        body { font-family: sans-serif; background-color: #f8f9fa; margin: 0; padding: 0; color: #333; }
+        .header { background-color: #d81b60; color: white; padding: 15px; display: flex; align-items: center; font-size: 1.2rem; }
+        .back-btn { margin-right: 15px; cursor: pointer; }
+        .tabs { display: flex; background: #fff; margin: 15px; border-radius: 10px; padding: 5px; border: 1px solid #eee; }
+        .tab { flex: 1; text-align: center; padding: 10px; cursor: pointer; border-radius: 8px; }
+        .tab.active { background-color: #d81b60; color: white; }
+        .card { background: white; margin: 10px 15px; padding: 15px; border-radius: 12px; border: 1px solid #f0f0f0; }
+        .section-title { font-weight: bold; color: #d81b60; margin-bottom: 10px; display: flex; align-items: center; }
+        .section-title::before { content: ""; display: inline-block; width: 4px; height: 18px; background: #d81b60; margin-right: 8px; border-radius: 2px; }
+        .row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f9f9f9; }
+        .label { color: #666; }
+        .value { font-weight: 500; }
+        .highlight { color: #d81b60; font-weight: bold; }
+    </style>
+
+  <!-- PWA & Mobile Meta Tags (Auto-injected by Nexus AI) -->
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#4f46e5" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="apple-touch-icon" href="/icon.svg" />
+  <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+
+  <!-- Nexus Runtime Error Bridge (Auto-injected by Nexus AI) -->
+  <script>
+    (function() {
+      if (window.__nexusErrorBridge) return;
+      window.__nexusErrorBridge = true;
+      function notifyParent(payload) {
+        try {
+          if (window.parent && window.parent !== window) {
+            window.parent.postMessage({ type: 'nexus-preview-error', payload: payload }, '*');
+          }
+        } catch (e) {}
+      }
+      window.addEventListener('error', function(event) {
+        notifyParent({
+          message: event.message || 'Runtime script error',
+          source: event.filename || '',
+          line: event.lineno || 0,
+          col: event.colno || 0
+        });
+      });
+      window.addEventListener('unhandledrejection', function(event) {
+        var reason = event.reason;
+        notifyParent({
+          message: (reason && reason.message) ? reason.message : String(reason || 'Unhandled Promise Rejection'),
+          source: 'Promise',
+          line: 0,
+          col: 0
+        });
+      });
+    })();
+  </script>
+</head>
+<body>
+
+<div class="header">
+    <div class="back-btn">←</div>
+    <div>কাস্টমার লেজার</div>
+</div>
+
+<div class="tabs">
+    <div class="tab active">ওভারভিউ</div>
+    <div class="tab">সময়সূচী</div>
+    <div class="tab">ইতিহাস</div>
+</div>
+
+<div class="card">
+    <div class="section-title">গ্রাহক তথ্য</div>
+    <div class="row"><span class="label">আইডি</span><span class="value">64273</span></div>
+    <div class="row"><span class="label">নাম</span><span class="value">MD JABIR ABDULLA AL MAMUN</span></div>
+    <div class="row"><span class="label">মোবাইল</span><span class="value">01623743111</span></div>
+</div>
+
+<div class="card">
+    <div class="section-title">ইএমআই বিবরণ</div>
+    <div class="row"><span class="label">মূল তারিখ</span><span class="value">2026-09-17</span></div>
+    <div class="row"><span class="label">ইএমআই শুরুর তারিখ</span><span class="value">2026-10-17</span></div>
+    <div class="row"><span class="label">ডিভাইসের প্রকৃত মূল্য</span><span class="value">TK 17,199.00</span></div>
+    <div class="row"><span class="label">ইএমআই সময়কাল</span><span class="value">6 পেমেন্ট</span></div>
+    <div class="row"><span class="label">পেমেন্ট</span><span class="value">TK 2,768.67</span></div>
+    <div class="row"><span class="label">মোট ইএমআই</span><span class="value">TK 15,698.36</span></div>
+</div>
+
+<div class="card">
+    <div class="section-title">পেমেন্ট সারাংশ</div>
+    <div class="row"><span class="label">ডাউন পেমেন্ট</span><span class="value">TK 5,727.43</span></div>
+    <div class="row"><span class="label">এখন পর্যন্ত পরিশোধিত</span><span class="value highlight">TK 2,768.67</span></div>
+    <div class="row"><span class="label">মোট বকেয়া</span><span class="value highlight">TK 12,929.69</span></div>
+</div>
+
+
+  <!-- PWA Service Worker Registration & Install Prompt (Auto-injected by Nexus AI) -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function() {
+        navigator.serviceWorker.register('./sw.js').then(function(reg) {
+          console.log('Nexus PWA Service Worker registered:', reg.scope);
+        }).catch(function(err) {
+          console.log('SW registration note:', err);
+        });
+      });
+    }
+
+    // Global PWA Install Prompt Listener
+    let deferredInstallPrompt = null;
+    window.addEventListener('beforeinstallprompt', function(e) {
+      e.preventDefault();
+      deferredInstallPrompt = e;
+      window.dispatchEvent(new CustomEvent('pwa-installable'));
+      var installBtn = document.getElementById('nexus-pwa-install-btn');
+      if (installBtn) installBtn.style.display = 'inline-flex';
+    });
+
+    window.triggerPWAInstall = function() {
+      if (deferredInstallPrompt) {
+        deferredInstallPrompt.prompt();
+        deferredInstallPrompt.userChoice.then(function(choice) {
+          if (choice.outcome === 'accepted') {
+            console.log('User accepted PWA installation');
+          }
+          deferredInstallPrompt = null;
+        });
+      } else {
+        alert('অ্যাপটি ইনস্টল করতে ব্রাউজারের শেয়ার বা মেনু থেকে "Add to Home Screen" বা "Install" নির্বাচন করুন।');
+      }
+    };
+  </script>
+</body>
+</html>

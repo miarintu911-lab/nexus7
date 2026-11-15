@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+    <title>Nexus AI | Intelligent Builder</title>
+    <meta name="description" content="Production-ready full-stack AI coding studio & website builder with 25 specialized skills, autonomous engineering pipeline, and real-time live canvas." />
+    <meta property="og:title" content="Nexus AI | Intelligent Builder" />
+    <meta property="og:description" content="Production-ready full-stack AI coding studio & website builder with 25 specialized skills, autonomous engineering pipeline, and real-time live canvas." />
+    <meta name="theme-color" content="#020617" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Nexus AI" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <script>
+      // Clean up legacy ping tool caches from previous applet instances
+      if ('caches' in window) {
+        caches.keys().then(function(names) {
+          var cleared = false;
+          names.forEach(function(name) {
+            if (name === 'ping-tool-v1' || name.indexOf('ping') !== -1) {
+              caches.delete(name);
+              cleared = true;
+            }
+          });
+          if (cleared) {
+            console.log('Legacy ping cache cleared');
+          }
+        });
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
