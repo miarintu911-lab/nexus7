@@ -23,6 +23,7 @@ export interface ChatJobSnapshot {
   lastSeq: number;
   latestText: string;
   latestImageUrl?: string;
+  latestVideoUrl?: string;
   actionLog?: string;
   activityLogs: string[];
   actionSteps: any[];
@@ -96,6 +97,7 @@ function pruneAndSerializeJobs(): ChatJobInternal[] {
     lastSeq: job.lastSeq,
     latestText: job.latestText,
     latestImageUrl: job.latestImageUrl,
+    latestVideoUrl: job.latestVideoUrl,
     actionLog: job.actionLog,
     activityLogs: job.activityLogs.slice(-150),
     actionSteps: job.actionSteps.slice(-100),
@@ -178,6 +180,7 @@ export async function ensureJobsLoaded(): Promise<void> {
             lastSeq: Number(item.lastSeq) || 0,
             latestText: typeof item.latestText === 'string' ? item.latestText : '',
             latestImageUrl: item.latestImageUrl,
+            latestVideoUrl: item.latestVideoUrl,
             actionLog: item.actionLog,
             activityLogs: Array.isArray(item.activityLogs) ? item.activityLogs : [],
             actionSteps: Array.isArray(item.actionSteps) ? item.actionSteps : [],
@@ -221,6 +224,7 @@ function toSnapshot(job: ChatJobInternal): ChatJobSnapshot {
     lastSeq: job.lastSeq,
     latestText: job.latestText,
     latestImageUrl: job.latestImageUrl,
+    latestVideoUrl: job.latestVideoUrl,
     actionLog: job.actionLog,
     activityLogs: [...job.activityLogs],
     actionSteps: [...job.actionSteps],
@@ -275,6 +279,13 @@ function recordAndBroadcastEvent(job: ChatJobInternal, data: any): void {
     case 'image':
       if (data.imageUrl) {
         job.latestImageUrl = data.imageUrl;
+      }
+      break;
+
+    case 'video':
+      if (data.videoUrl) {
+        job.latestVideoUrl = data.videoUrl;
+        shouldPersistImmediately = true;
       }
       break;
 

@@ -1740,6 +1740,9 @@ async function executeToolWithLiveEvents(
   if ((callName === "generateImage" || callName === "generate_image") && toolResult?.imageUrl) {
     sendEvent({ type: "image", imageUrl: toolResult.imageUrl });
   }
+  if (callName === "generate_video" && toolResult?.videoUrl) {
+    sendEvent({ type: "video", videoUrl: toolResult.videoUrl });
+  }
   if (callName === "visual_qa_review" && toolResult?.screenshotUrl) {
     sendEvent({ type: "image", imageUrl: toolResult.screenshotUrl });
   }
@@ -1809,6 +1812,7 @@ const OPENAI_CORE_TOOL_NAMES = new Set([
   'search_web',
   'webFetch',
   'generate_image',
+  'generate_video',
   'fetch_stock_images',
   'restart_dev_server',
   'ask_question',
@@ -1909,12 +1913,17 @@ function selectRelevantTools(
     baseTools.add('focus_mode');
     baseTools.add('visual_qa_review');
   }
-  if (/(website|landing|store|shop|ecommerce|e-commerce|portfolio|dashboard|saas|game|pwa|portal|platform|app|video|animation|motion|reel|ওয়েবসাইট|ওয়েবসাইট|ড্যাশবোর্ড|ই-কমার্স|স্টোর|পোর্টফোলিও|গেম|অ্যাপ|ভিডিও|এনিমেশন|মোশন|বানাও|তৈরি)/i.test(lower) || mode === 'video') {
+  if (/(website|landing|store|shop|ecommerce|e-commerce|portfolio|dashboard|saas|game|pwa|portal|platform|app|ওয়েবসাইট|ওয়েবসাইট|ড্যাশবোর্ড|ই-কমার্স|স্টোর|পোর্টফোলিও|গেম|অ্যাপ|বানাও|তৈরি)/i.test(lower)) {
     baseTools.add('fetch_stock_images');
     baseTools.add('generate_image');
     baseTools.add('visual_qa_review');
     baseTools.add('workspace_init');
     baseTools.add('workspace_run');
+  }
+  if (mode === 'video' || /(video|animation|motion|reel|shorts|ভিডিও|এনিমেশন|মোশন)/i.test(lower)) {
+    baseTools.add('generate_video');
+    baseTools.add('generate_image');
+    baseTools.add('fetch_stock_images');
   }
   if (/(search|docs|latest|find online|web|url|https?:\/\/|সার্চ|খুঁজ)/i.test(lower) || mode === 'search') {
     baseTools.add('search_web');
@@ -2283,6 +2292,7 @@ function selectPhaseOpenAITools(
       'install_applet_package',
       'fetch_stock_images',
       'generate_image',
+      'generate_video',
       'set_up_firebase',
       'ask_question',
       ...(enableMultiAgentOmo ? ['omo_coordinate'] : []),
@@ -2300,6 +2310,8 @@ function selectPhaseOpenAITools(
       'ask_question',
       'search_web',
       'write_to_file',
+      'generate_video',
+      'generate_image',
       ...(enableMultiAgentOmo ? ['omo_coordinate'] : []),
     ]),
     build: new Set([
@@ -2315,6 +2327,7 @@ function selectPhaseOpenAITools(
       'read_skill',
       'fetch_stock_images',
       'generate_image',
+      'generate_video',
       'set_up_firebase',
       'deploy_firebase',
     ]),
@@ -4799,6 +4812,7 @@ Use the injected [CODEBASE DEPENDENCY GRAPH] and [LOCKED TYPE CONTRACTS] below; 
         const harnessContext = await buildHarnessPreFlightContext(initialLastMessage, {
           sessionId,
           isConversational: isConversationalPrompt,
+          mode,
         });
         if (harnessContext) {
           lastMessage += `\n\n${harnessContext}`;
@@ -4984,7 +4998,7 @@ MANDATORY WEBSITE REPLICATION GUIDELINES:
     const sandboxLockSessionId =
       safeSessionId &&
       !targetsNexusInternals &&
-      (shouldUseModularArchitecture(initialLastMessage) || mode === 'video' || hasExistingSessionWorkspace)
+      (shouldUseModularArchitecture(initialLastMessage, mode) || hasExistingSessionWorkspace)
         ? safeSessionId
         : undefined;
 

@@ -675,8 +675,9 @@ export default function App() {
     runToken: number;
     initialText?: string;
     initialImageUrl?: string;
+    initialVideoUrl?: string;
   }) => {
-    const { jobId, targetSessionId, startedAt, afterSeq, runToken, initialText, initialImageUrl } = params;
+    const { jobId, targetSessionId, startedAt, afterSeq, runToken, initialText, initialImageUrl, initialVideoUrl } = params;
     const abortController = new AbortController();
     activeStreamAbortRef.current = abortController;
     activeJobIdRef.current = jobId;
@@ -688,7 +689,7 @@ export default function App() {
       const outcome = await streamChatJob(
         jobId,
         {
-          onUpdateText: (text, imageUrl) => {
+          onUpdateText: (text, imageUrl, videoUrl) => {
             if (activeRunTokenRef.current !== runToken) return;
             setMessages((prev) => {
               const last = prev[prev.length - 1];
@@ -700,6 +701,7 @@ export default function App() {
                         ...last,
                         parts: [{ text }],
                         imageUrl: imageUrl || last.imageUrl,
+                        videoUrl: videoUrl || last.videoUrl,
                         actionSteps: actionStepsRef.current,
                         modifiedFiles: modifiedFilesRef.current,
                       },
@@ -710,6 +712,7 @@ export default function App() {
                         role: 'model',
                         parts: [{ text }],
                         imageUrl,
+                        videoUrl,
                         actionSteps: actionStepsRef.current,
                         modifiedFiles: modifiedFilesRef.current,
                       },
@@ -798,6 +801,7 @@ export default function App() {
           sessionId: targetSessionId,
           initialText,
           initialImageUrl,
+          initialVideoUrl,
         }
       );
 
@@ -956,7 +960,7 @@ export default function App() {
     const mergeSnapshotIntoMessages = (baseMsgs: any[], markFinished: boolean, finalDuration?: number) => {
       const msgs = Array.isArray(baseMsgs) ? [...baseMsgs] : [];
       const hasPayload = Boolean(
-        snapshot.latestText || snapshot.latestImageUrl || restoredSteps.length > 0 || restoredFiles.length > 0
+        snapshot.latestText || snapshot.latestImageUrl || snapshot.latestVideoUrl || restoredSteps.length > 0 || restoredFiles.length > 0
       );
       if (!hasPayload && msgs[msgs.length - 1]?.role !== 'model') {
         return msgs;
@@ -968,6 +972,7 @@ export default function App() {
           ...last,
           parts: [{ text: snapshot.latestText || last.parts?.[0]?.text || '' }],
           imageUrl: snapshot.latestImageUrl || last.imageUrl,
+          videoUrl: snapshot.latestVideoUrl || last.videoUrl,
           keyInfo: snapshot.keyInfo || last.keyInfo,
           actionSteps: restoredSteps.length > 0 ? restoredSteps : last.actionSteps,
           modifiedFiles: restoredFiles.length > 0 ? restoredFiles : last.modifiedFiles,
@@ -984,6 +989,7 @@ export default function App() {
           role: 'model',
           parts: [{ text: snapshot.latestText || '' }],
           imageUrl: snapshot.latestImageUrl,
+          videoUrl: snapshot.latestVideoUrl,
           keyInfo: snapshot.keyInfo,
           actionSteps: restoredSteps,
           modifiedFiles: restoredFiles,
@@ -1033,6 +1039,7 @@ export default function App() {
         runToken,
         initialText: snapshot.latestText,
         initialImageUrl: snapshot.latestImageUrl,
+        initialVideoUrl: snapshot.latestVideoUrl,
       });
       return;
     }
@@ -1722,6 +1729,31 @@ export default function App() {
                 {m.imageUrl && (
                   <img src={m.imageUrl} className="rounded-xl w-full max-w-sm border border-slate-800 shadow-2xl" alt="Generated" />
                 )}
+                {m.videoUrl && (
+                  <div className="w-full max-w-md rounded-2xl overflow-hidden border border-slate-700/80 bg-slate-950 shadow-2xl">
+                    <video
+                      src={m.videoUrl}
+                      controls
+                      playsInline
+                      preload="metadata"
+                      className="w-full bg-black max-h-[360px]"
+                    />
+                    <div className="flex items-center justify-between px-3 py-2 bg-slate-900/90 border-t border-slate-800 text-xs">
+                      <span className="inline-flex items-center gap-1.5 text-slate-300 font-medium">
+                        <Film className="w-3.5 h-3.5 text-indigo-400" />
+                        AI Generated MP4 Video
+                      </span>
+                      <a
+                        href={m.videoUrl}
+                        download
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-600/25 hover:bg-indigo-600/40 text-indigo-300 border border-indigo-500/30 font-semibold transition-colors"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>ডাউনলোড MP4</span>
+                      </a>
+                    </div>
+                  </div>
+                )}
                 {/* Instant Live Preview Button inside message when website code is generated */}
                 {m.role === 'model' && (
                   m.parts[0].text.includes('```html') ||
@@ -1977,7 +2009,7 @@ export default function App() {
                           { id: 'general', icon: Sparkles, label: 'General Assistant', desc: 'Chat & guidance' },
                           { id: 'image', icon: ImageIcon, label: 'Image Artist', desc: 'Generate visuals' },
                           { id: 'search', icon: Search, label: 'Web Explorer', desc: 'Live search' },
-                          { id: 'video', icon: Film, label: 'Video Studio', desc: 'Audio, video & kinetic text' },
+                          { id: 'video', icon: Film, label: 'Video Creator', desc: 'Audio, video & text MP4' },
                         ].map((mode) => (
                           <button
                             key={mode.id}

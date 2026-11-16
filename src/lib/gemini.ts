@@ -31,6 +31,7 @@ export interface ChatJobSnapshot {
   lastSeq: number;
   latestText: string;
   latestImageUrl?: string;
+  latestVideoUrl?: string;
   actionLog?: string;
   activityLogs: string[];
   actionSteps: ActionStep[];
@@ -54,7 +55,7 @@ export interface ChatJobSnapshot {
 }
 
 export interface ChatStreamCallbacks {
-  onUpdateText: (text: string, imageUrl?: string) => void;
+  onUpdateText: (text: string, imageUrl?: string, videoUrl?: string) => void;
   onAction: (action: string) => void;
   onRotateKey: (keyId: string, cooldownSec: number) => void;
   onPreviewReady: (url: string, html?: string, sessionId?: string) => void;
@@ -72,7 +73,8 @@ async function consumeChatSSEStream(
   defaultSessionId?: string,
   initialText: string = '',
   initialImageUrl?: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  initialVideoUrl?: string
 ): Promise<'completed' | 'cancelled' | 'unsubscribed'> {
   const reader = response.body?.getReader();
   if (!reader) {
@@ -88,6 +90,7 @@ async function consumeChatSSEStream(
   let buffer = '';
   let accumulatedText = initialText;
   let latestImageUrl: string | undefined = initialImageUrl;
+  let latestVideoUrl: string | undefined = initialVideoUrl;
 
   try {
     while (true) {
@@ -130,12 +133,17 @@ async function consumeChatSSEStream(
         switch (event.type) {
           case 'text':
             accumulatedText = event.text ?? '';
-            callbacks.onUpdateText(accumulatedText, latestImageUrl);
+            callbacks.onUpdateText(accumulatedText, latestImageUrl, latestVideoUrl);
             break;
 
           case 'image':
             latestImageUrl = event.imageUrl;
-            callbacks.onUpdateText(accumulatedText, latestImageUrl);
+            callbacks.onUpdateText(accumulatedText, latestImageUrl, latestVideoUrl);
+            break;
+
+          case 'video':
+            latestVideoUrl = event.videoUrl;
+            callbacks.onUpdateText(accumulatedText, latestImageUrl, latestVideoUrl);
             break;
 
           case 'action':
@@ -227,7 +235,9 @@ async function consumeChatSSEStream(
           case 'done':
             if (typeof event.fullText === 'string' && event.fullText.length > 0 && event.fullText !== accumulatedText) {
               accumulatedText = event.fullText;
-              callbacks.onUpdateText(accumulatedText, latestImageUrl);
+              callbacks.onUpdateText(accumulatedText, latestImageUrl, latestVideoUrl);
+            } else if (latestVideoUrl) {
+              callbacks.onUpdateText(accumulatedText, latestImageUrl, latestVideoUrl);
             }
             if (event.activeKeyId || event.keyId) {
               setLastSuccessfulKeyId(event.activeKeyId || event.keyId);
@@ -302,6 +312,7 @@ export async function streamChatJob(
     sessionId?: string;
     initialText?: string;
     initialImageUrl?: string;
+    initialVideoUrl?: string;
   }
 ): Promise<'completed' | 'cancelled' | 'unsubscribed'> {
   const after = opts?.afterSeq ?? -1;
@@ -333,7 +344,8 @@ export async function streamChatJob(
     opts?.sessionId,
     opts?.initialText || '',
     opts?.initialImageUrl,
-    opts?.signal
+    opts?.signal,
+    opts?.initialVideoUrl
   );
 }
 
@@ -371,7 +383,7 @@ export async function cancelChatJob(
 
 export async function chatWithAI(
   messages: any[],
-  onUpdateText: (text: string, imageUrl?: string) => void,
+  onUpdateText: (text: string, imageUrl?: string, videoUrl?: string) => void,
   onAction: (action: string) => void,
   mode: string = 'coding',
   onRotateKey: (keyId: string, cooldownSec: number) => void,

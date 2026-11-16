@@ -416,11 +416,14 @@ export function isExplicitFirebasePrompt(promptText: string): boolean {
   return /(?:firebase|firestore|firebaseConfig|ফায়ারবেস|ফায়ারবেস)/i.test(promptText || '');
 }
 
-export function shouldUseModularArchitecture(promptText: string): boolean {
+export function shouldUseModularArchitecture(promptText: string, mode?: string): boolean {
   const lower = (promptText || '').toLowerCase();
   if (isGitHubClonePrompt(promptText) || /(server\/|src\/|package\.json|apiOrchestrator|GoogleAIStudioCoderView)/i.test(lower)) return false;
-  const isNewAppCreation = /(build|create|make|design|develop|website|web\s*app|landing\s*page|dashboard|saas|store|shop|ecommerce|e-commerce|portfolio|crm|erp|lms|portal|platform|site|game|arcade|video|animation|motion|reel|explainer|বানা|তৈরি|ওয়েবসাইট|ওয়েবসাইট|সাইট|ড্যাশবোর্ড|ই-কমার্স|পোর্টফোলিও|গেম|প্ল্যাটফর্ম|পোর্টাল|ভিডিও|এনিমেশন|মোশন)/i.test(lower);
-  const isTargetedEditOrFix = /^(?:fix|debug|edit|update|modify|refactor|add\s+a?\s*feature|ঠিক|ফিক্স|এডিট|আপডেট|যুক্ত)/i.test(lower.trim()) && !/(website|landing|store|dashboard|new\s+app|নতুন\s*অ্যাপ|ওয়েবসাইট|ওয়েবসাইট|ভিডিও|এনিমেশন)/i.test(lower);
+  const wantsWebsiteOrApp = /(website|web\s*app|landing\s*page|dashboard|saas|store|shop|ecommerce|e-commerce|portfolio|crm|erp|lms|portal|platform|site|game|arcade|editor\s*app|ওয়েবসাইট|ওয়েবসাইট|সাইট|ড্যাশবোর্ড|ই-কমার্স|পোর্টফোলিও|গেম|অ্যাপ|প্ল্যাটফর্ম|পোর্টাল)/i.test(lower);
+  if (mode === 'video' && !wantsWebsiteOrApp) return false;
+  if (/(video|animation|motion|reel|shorts|ভিডিও|এনিমেশন|মোশন)/i.test(lower) && !wantsWebsiteOrApp) return false;
+  const isNewAppCreation = wantsWebsiteOrApp || /(build|create|make|design|develop|বানা|তৈরি).*(ui|page|form|tool|calculator|tracker|পেজ|ফর্ম)/i.test(lower);
+  const isTargetedEditOrFix = /^(?:fix|debug|edit|update|modify|refactor|add\s+a?\s*feature|ঠিক|ফিক্স|এডিট|আপডেট|যুক্ত)/i.test(lower.trim()) && !/(website|landing|store|dashboard|new\s+app|নতুন\s*অ্যাপ|ওয়েবসাইট|ওয়েবসাইট)/i.test(lower);
   if (isTargetedEditOrFix) return false;
   return isNewAppCreation;
 }
@@ -525,7 +528,7 @@ export function buildDeterministicTaskPlan(promptText: string): string | null {
 // Pre-Flight Context Injector: gives ANY model real dependency graph, installed packages, AST signatures, and scaffold rules
 export async function buildHarnessPreFlightContext(
   promptText: string,
-  options: { sessionId?: string; isConversational?: boolean } = {}
+  options: { sessionId?: string; isConversational?: boolean; mode?: string } = {}
 ): Promise<string> {
   if (options.isConversational) return '';
   const blocks: string[] = [];
@@ -533,11 +536,11 @@ export async function buildHarnessPreFlightContext(
 
   try {
     // 1. Inject installed packages & scoped context (skip root codebase AST/graph on fresh greenfield website builds!)
-    const isCodeTask = /(src\/|server\/|react|vite|express|component|endpoint|route|typescript|tsx|ts|bug|error|fix|refactor|feature|app|build|create|website|dashboard|firebase|firestore|কোড|ফিক্স|এরর|বানা|তৈরি|ওয়েবসাইট|ফায়ারবেস|ফায়ারবেস)/i.test(promptText);
+    const isCodeTask = options.mode !== 'video' && /(src\/|server\/|react|vite|express|component|endpoint|route|typescript|tsx|ts|bug|error|fix|refactor|feature|app|build|create|website|dashboard|firebase|firestore|কোড|ফিক্স|এরর|বানা|তৈরি|ওয়েবসাইট|ফায়ারবেস|ফায়ারবেস)/i.test(promptText);
     const wsSrcExists = options.sessionId
       ? await fs.access(path.resolve(process.cwd(), 'workspaces', safeId, 'src')).then(() => true).catch(() => false)
       : false;
-    const isFreshGreenfield = shouldUseModularArchitecture(promptText) && !wsSrcExists;
+    const isFreshGreenfield = shouldUseModularArchitecture(promptText, options.mode) && !wsSrcExists;
 
     if (isFreshGreenfield) {
       blocks.push(

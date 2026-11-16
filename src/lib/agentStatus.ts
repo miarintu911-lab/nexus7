@@ -66,6 +66,7 @@ const CODER_TOOLS = new Set([
   'install_applet_dependencies',
   'generate_image',
   'generateImage',
+  'generate_video',
   'fetch_stock_images',
   'set_up_firebase',
   'deploy_firebase',

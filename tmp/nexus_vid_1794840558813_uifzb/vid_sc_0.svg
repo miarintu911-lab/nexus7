@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="630" viewBox="0 0 1120 630">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#062019"/>
+      <stop offset="100%" stop-color="#0c352b"/>
+    </linearGradient>
+    <radialGradient id="orb" cx="70%" cy="30%" r="55%">
+      <stop offset="0%" stop-color="#10b981" stop-opacity="0.42"/>
+      <stop offset="100%" stop-color="#10b981" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="100%" height="100%" fill="url(#bg)"/>
+  <rect width="100%" height="100%" fill="url(#orb)"/>
+  <circle cx="806" cy="214" r="113" fill="#34d399" fill-opacity="0.14" stroke="#10b981" stroke-opacity="0.4" stroke-width="2"/>
+  <text x="90" y="340" fill="#f8fafc" font-family="system-ui, -apple-system, sans-serif" font-size="40" font-weight="700">Majestic Bengal tiger walking through mi</text>
+  <rect x="90" y="378" width="64" height="3" rx="1.5" fill="#10b981"/>
+</svg>

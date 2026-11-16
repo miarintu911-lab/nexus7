@@ -10,6 +10,7 @@ import type { Response } from "express";
 import { autoDeployWebsiteFromText, deployHtmlFile, getNexusSystemInstruction, prepareGeminiHistoryAndLastMessage } from "./websiteDeployer.ts";
 import { getSkillByName, listAllSkillsSummary } from "./skillsRegistry.ts";
 import { fetchBatchStockImages } from "./mediaFetcher.ts";
+import { generateAiVideoWithAudio } from "./videoGenerator.ts";
 import {
   verifyLivePreviewWithDom,
   freeWebSearch,
@@ -648,6 +649,35 @@ const generateImageTool: FunctionDeclaration = {
   },
 };
 
+const generateVideoTool: FunctionDeclaration = {
+  name: "generate_video",
+  description: "Generate a real playable MP4 video directly in chat with synchronized spoken voiceover audio (Bengali/English), ambient background music, Ken Burns motion visuals, and crisp on-screen text captions. Call this directly whenever the user wants a video created (instead of building a website).",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      Prompt: { type: Type.STRING, description: "Overall video topic/prompt." },
+      AspectRatio: { type: Type.STRING, enum: ["16:9", "9:16", "1:1"], description: "16:9 landscape, 9:16 Reels/Shorts, or 1:1 square." },
+      AudioMood: { type: Type.STRING, enum: ["cinematic", "upbeat", "ambient", "none"], description: "Background music mood." },
+      VoiceLanguage: { type: Type.STRING, enum: ["auto", "bn", "en", "none"], description: "Voiceover language (auto detects Bengali vs English)." },
+      Scenes: {
+        type: Type.ARRAY,
+        description: "2 to 5 sequential scenes defining visuals, voiceover audio narration, and short on-screen caption text.",
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            visualPrompt: { type: Type.STRING, description: "Detailed English visual prompt for AI/stock imagery for this scene." },
+            overlayText: { type: Type.STRING, description: "Short punchy on-screen caption/title (can be Bengali or English)." },
+            narrationText: { type: Type.STRING, description: "Spoken voiceover line for this scene (Bengali or English matching user)." },
+            durationSec: { type: Type.NUMBER, description: "Optional scene duration in seconds (3-7s)." },
+          },
+          required: ["visualPrompt"],
+        },
+      },
+    },
+    required: ["Prompt"],
+  },
+};
+
 const fetchStockImagesTool: FunctionDeclaration = {
   name: "fetch_stock_images",
   description: "Batch-fetch real royalty-free stock photos (Openverse, Wikimedia Commons, Wikipedia, zero-token fallback) and save them locally in a single call (0 Gemini image tokens). Ideal for seed data, product catalogs, cards, galleries, blog thumbnails, and avatars. Automatically writes into workspaces/<sessionId>/public/images/ and returns ready-to-use './images/<file>' URLs.",
@@ -1123,6 +1153,7 @@ export const serverTools: FunctionDeclaration[] = [
   persistenceStatusTool,
   searchWebTool,
   generateImageTool,
+  generateVideoTool,
   fetchStockImagesTool,
   askQuestionTool,
   setUpFirebaseTool,
@@ -2048,6 +2079,7 @@ export async function executeServerTool(
       'webSearch': `Searching: ${args.query}...`,
       'generate_image': `Generating image: ${args.Prompt || args.prompt}...`,
       'generateImage': `Generating image: ${args.prompt || args.Prompt}...`,
+      'generate_video': `Rendering MP4 video with audio, voiceover & motion text...`,
       'fetch_stock_images': `Fetching ${(args.items || []).length || 1} stock image(s) locally (0 tokens)...`,
       'ask_question': `Asking clarifying questions...`,
       'verify_live_preview': `Verifying live preview (${args.targetUrl || '/projects/index.html'})...`,
@@ -3126,6 +3158,39 @@ export async function executeServerTool(
         };
       }
 
+      case 'generate_video': {
+        let geminiKey = execCtx?.geminiApiKey || process.env.GEMINI_API_KEY;
+        let hfKey = process.env.HF_TOKEN || process.env.HUGGINGFACE_API_KEY;
+        try {
+          const rawSecrets = await fs.readFile(path.resolve(process.cwd(), '.secrets.json'), 'utf-8');
+          const list = JSON.parse(rawSecrets);
+          if (Array.isArray(list)) {
+            if (!geminiKey) geminiKey = list.find((k: any) => k.isActive && k.provider === 'gemini' && k.apiKey)?.apiKey;
+            if (!hfKey) hfKey = list.find((k: any) => k.isActive && k.provider === 'huggingface' && k.apiKey)?.apiKey;
+          }
+        } catch {}
+
+        const vidScenes = Array.isArray(args.Scenes || args.scenes)
+          ? (args.Scenes || args.scenes).map((s: any) => ({
+              visualPrompt: String(s?.visualPrompt || s?.visual_prompt || args.Prompt || args.prompt || 'Cinematic scene'),
+              overlayText: s?.overlayText || s?.overlay_text || s?.text,
+              narrationText: s?.narrationText || s?.narration_text || s?.narration || s?.voiceover,
+              durationSec: Number(s?.durationSec || s?.duration_sec || s?.duration) || undefined,
+            }))
+          : undefined;
+
+        return await generateAiVideoWithAudio({
+          prompt: String(args.Prompt || args.prompt || 'Animated explainer video'),
+          scenes: vidScenes,
+          aspectRatio: (args.AspectRatio || args.aspectRatio || '16:9') as any,
+          audioMood: (args.AudioMood || args.audioMood || 'cinematic') as any,
+          voiceLanguage: (args.VoiceLanguage || args.voiceLanguage || 'auto') as any,
+          geminiApiKey: geminiKey,
+          huggingfaceApiKey: hfKey,
+          pollinationsApiKey: process.env.POLLINATIONS_API_KEY,
+        });
+      }
+
       case 'fetch_stock_images': {
         const items = Array.isArray(args.items)
           ? args.items
@@ -3914,6 +3979,9 @@ export async function handleServerGeminiChat(req: { messages: any[]; mode?: stri
           });
           if ((call.name === "generate_image" || call.name === "generateImage") && toolResult?.imageUrl) {
             sendEvent({ type: "image", imageUrl: toolResult.imageUrl });
+          }
+          if (call.name === "generate_video" && toolResult?.videoUrl) {
+            sendEvent({ type: "video", videoUrl: toolResult.videoUrl });
           }
           return {
             functionResponse: {

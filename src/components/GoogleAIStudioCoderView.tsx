@@ -45,7 +45,8 @@ import {
   Crosshair,
   Rocket,
   Flame,
-  FileText
+  FileText,
+  Film
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -1022,6 +1023,40 @@ export const GoogleAIStudioCoderView: React.FC<GoogleAIStudioCoderViewProps> = (
                         <div className="text-slate-100 text-sm leading-relaxed pt-1 select-text">
                           {renderMessageContent(m.parts[0]?.text || '')}
                         </div>
+
+                        {m.imageUrl && (
+                          <img
+                            src={m.imageUrl}
+                            alt="Generated"
+                            className="rounded-xl w-full max-w-sm border border-slate-800 shadow-xl"
+                          />
+                        )}
+
+                        {m.videoUrl && (
+                          <div className="w-full max-w-md rounded-2xl overflow-hidden border border-slate-700/80 bg-slate-950 shadow-2xl">
+                            <video
+                              src={m.videoUrl}
+                              controls
+                              playsInline
+                              preload="metadata"
+                              className="w-full bg-black max-h-[360px]"
+                            />
+                            <div className="flex items-center justify-between px-3 py-2 bg-slate-900/90 border-t border-slate-800 text-xs">
+                              <span className="inline-flex items-center gap-1.5 text-slate-300 font-medium">
+                                <Film className="w-3.5 h-3.5 text-indigo-400" />
+                                AI Generated MP4 Video
+                              </span>
+                              <a
+                                href={m.videoUrl}
+                                download
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-600/25 hover:bg-indigo-600/40 text-indigo-300 border border-indigo-500/30 font-semibold transition-colors"
+                              >
+                                <Download className="w-3.5 h-3.5" />
+                                <span>ডাউনলোড MP4</span>
+                              </a>
+                            </div>
+                          </div>
+                        )}
 
                         {/* Quick Live Preview jump pill when HTML files were modified */}
                         {hasHtmlUpdate && !isLatestStreamingModel && (

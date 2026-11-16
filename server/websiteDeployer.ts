@@ -59,7 +59,7 @@ For any non-trivial coding or app-building request, FIRST call \`omo_coordinate\
 
   const videoModeSection =
     mode === 'video'
-      ? `\n[VIDEO STUDIO MODE ACTIVE]: Build a Remotion-style interactive Audio + Video + Text Motion Studio inside \`workspaces/${options.sessionId || 'app'}/\`! Call \`read_skill("motion-video-studio")\` + \`workspace_init(template: 'react-vite')\`, render a 60fps HTML5 Canvas + kinetic typography + Web Audio API (\`createMediaStreamDestination\`) synth/music/custom-audio mixer, mux Video + Audio tracks into \`MediaRecorder\` \`.webm\` export, include timeline scrubbing & scene/text editors, and publish via \`workspace_run(action: 'build')\`.`
+      ? `\n[DIRECT VIDEO CREATOR MODE ACTIVE]: The user selected Video Creator mode to get an ACTUAL PLAYABLE VIDEO in chat! NEVER call \`workspace_init\`, NEVER write a website, and NEVER build a web app unless the user explicitly asks to build a "video editor website/app". Instead, break the user's topic into 3–4 vivid scenes (\`visualPrompt\` in English for crisp scenes, \`overlayText\` short on-screen caption, \`narrationText\` voiceover script in user's language, \`durationSec\`: 3.5–5), call \`generate_video\` ONCE directly, wait for the returned \`videoUrl\`, and reply with a concise summary.`
       : '';
 
   if (options.compactForFreeApi) {
@@ -206,8 +206,11 @@ Phase 6: Scannable Structured Reporting
 export function inferWebsiteDesignBrief(promptText: string, sessionId?: string, mode?: string): string | null {
   const lower = (promptText || '').toLowerCase();
   const isRepoOrInternal = /(gh\s+repo\s+clone|git\s+clone|github\.com\/|ক্লোন|server\/apiOrchestrator|src\/components\/GoogleAIStudioCoderView)/i.test(lower);
-  const isVideoIntent = mode === 'video' || /(video|animation|motion|reel|explainer|shorts|ভিডিও|এনিমেশন|মোশন)/i.test(lower);
-  const isWebsiteRequest = !isRepoOrInternal && (isVideoIntent || /(website|web\s*app|landing\s*page|ecommerce|e-commerce|store|shop|dashboard|portfolio|saas|agency|blog|restaurant|cafe|hospital|clinic|school|lms|game|pwa|redesign|portal|platform|site|ui|ওয়েবসাইট|ওয়েবসাইট|সাইট|ল্যান্ডিং|পোর্টফোলিও|ড্যাশবোর্ড|ই-কমার্স|দোকান|স্টোর|অ্যাপ|গেম|প্ল্যাটফর্ম|পোর্টাল)/i.test(lower));
+  const wantsWebsiteExplicitly = /(website|web\s*app|landing\s*page|ecommerce|e-commerce|store|shop|dashboard|portfolio|saas|agency|blog|restaurant|cafe|hospital|clinic|school|lms|game|pwa|redesign|portal|platform|site|editor\s*app|ওয়েবসাইট|ওয়েবসাইট|সাইট|ল্যান্ডিং|পোর্টফোলিও|ড্যাশবোর্ড|ই-কমার্স|দোকান|স্টোর|অ্যাপ|গেম|প্ল্যাটফর্ম|পোর্টাল)/i.test(lower);
+  if (mode === 'video' && !wantsWebsiteExplicitly) return null;
+  const isPureDirectVideoRequest = /(video|animation|motion|reel|shorts|ভিডিও|এনিমেশন|মোশন)/i.test(lower) && !wantsWebsiteExplicitly;
+  if (isPureDirectVideoRequest) return null;
+  const isWebsiteRequest = !isRepoOrInternal && wantsWebsiteExplicitly;
   if (!isWebsiteRequest) return null;
 
   const isBengali = /[\u0980-\u09FF]/.test(promptText);
@@ -218,6 +221,7 @@ export function inferWebsiteDesignBrief(promptText: string, sessionId?: string, 
   let palette = 'Crisp off-white/slate neutral canvas (60%), subtle hairline structural cards (30%), focused cobalt/emerald CTA accent (10%)';
   let sections = '3-zone single-line header + multi-page nav, asymmetric editorial hero + visual proof, 4-5 rich interactive feature/catalog/analytics sections with live search & filtering, detail modal/drawer, testimonials/FAQ, real form/CRUD state, structured multi-column footer';
 
+  const isVideoIntent = /(motion|remotion|video\s*(studio|editor)|timeline|ভিডিও\s*(এডিটর|স্টুডিও))/i.test(lower);
   if (isVideoIntent) {
     domain = 'Remotion-Style Audio + Video + Kinetic Text Motion Studio';
     fonts = isBengali ? 'Hind Siliguri + Space Grotesk + JetBrains Mono' : 'Space Grotesk + DM Sans + JetBrains Mono';
