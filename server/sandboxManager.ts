@@ -160,6 +160,465 @@ import './index.css';
 createRoot(document.getElementById('root')!).render(<App />);
 `,
     'src/index.css': `@import "tailwindcss";\n`,
+    'src/lib/utils.ts': `import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+`,
+    'src/components/ui/Button.tsx': `import React from 'react';
+import { cn } from '../../lib/utils.ts';
+
+export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
+  size?: 'sm' | 'md' | 'lg';
+  loading?: boolean;
+}
+
+const VARIANT_CLASSES: Record<NonNullable<ButtonProps['variant']>, string> = {
+  primary: 'bg-slate-900 text-white hover:bg-slate-800 dark:bg-indigo-600 dark:hover:bg-indigo-500',
+  secondary: 'bg-slate-100 text-slate-900 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700',
+  outline: 'border border-slate-300 bg-transparent text-slate-800 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800',
+  ghost: 'bg-transparent text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800',
+  danger: 'bg-rose-600 text-white hover:bg-rose-500',
+};
+
+const SIZE_CLASSES: Record<NonNullable<ButtonProps['size']>, string> = {
+  sm: 'px-3 py-1.5 text-xs',
+  md: 'px-4 py-2 text-sm',
+  lg: 'px-6 py-2.5 text-base',
+};
+
+export function Button({
+  variant = 'primary',
+  size = 'md',
+  loading = false,
+  disabled,
+  className,
+  children,
+  ...props
+}: ButtonProps) {
+  return (
+    <button
+      disabled={disabled || loading}
+      className={cn(
+        'inline-flex items-center justify-center gap-2 rounded-xl font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed',
+        VARIANT_CLASSES[variant],
+        SIZE_CLASSES[size],
+        className
+      )}
+      {...props}
+    >
+      {loading && <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />}
+      {children}
+    </button>
+  );
+}
+`,
+    'src/components/ui/Badge.tsx': `import React from 'react';
+import { cn } from '../../lib/utils.ts';
+
+export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
+  variant?: 'default' | 'success' | 'warning' | 'danger' | 'accent';
+}
+
+const BADGE_CLASSES: Record<NonNullable<BadgeProps['variant']>, string> = {
+  default: 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',
+  success: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800',
+  warning: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800',
+  danger: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800',
+  accent: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/60 dark:text-indigo-300 dark:border-indigo-800',
+};
+
+export function Badge({ variant = 'default', className, children, ...props }: BadgeProps) {
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium whitespace-nowrap',
+        BADGE_CLASSES[variant],
+        className
+      )}
+      {...props}
+    >
+      {children}
+    </span>
+  );
+}
+`,
+    'src/components/ui/Modal.tsx': `import React, { useEffect } from 'react';
+import { X } from 'lucide-react';
+import { cn } from '../../lib/utils.ts';
+
+export interface ModalProps {
+  open: boolean;
+  onClose: () => void;
+  title?: string;
+  description?: string;
+  maxWidth?: 'sm' | 'md' | 'lg' | 'xl';
+  children: React.ReactNode;
+  className?: string;
+}
+
+const WIDTH_MAP = {
+  sm: 'max-w-sm',
+  md: 'max-w-lg',
+  lg: 'max-w-2xl',
+  xl: 'max-w-4xl',
+};
+
+export function Modal({ open, onClose, title, description, maxWidth = 'md', children, className }: ModalProps) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div
+        className={cn(
+          'w-full rounded-2xl border border-slate-200 bg-white p-6 text-slate-900 shadow-2xl dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 max-h-[90vh] overflow-y-auto',
+          WIDTH_MAP[maxWidth],
+          className
+        )}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {(title || description) && (
+          <div className="mb-4 flex items-start justify-between gap-4">
+            <div>
+              {title && <h3 className="text-lg font-semibold leading-snug">{title}</h3>}
+              {description && <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{description}</p>}
+            </div>
+            <button
+              onClick={onClose}
+              className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+              aria-label="Close modal"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+        {children}
+      </div>
+    </div>
+  );
+}
+`,
+    'src/components/ui/Drawer.tsx': `import React, { useEffect } from 'react';
+import { X } from 'lucide-react';
+import { cn } from '../../lib/utils.ts';
+
+export interface DrawerProps {
+  open: boolean;
+  onClose: () => void;
+  title?: string;
+  side?: 'right' | 'left';
+  children: React.ReactNode;
+  className?: string;
+}
+
+export function Drawer({ open, onClose, title, side = 'right', children, className }: DrawerProps) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex bg-black/55 backdrop-blur-xs" onClick={onClose} role="dialog" aria-modal="true">
+      <div
+        className={cn(
+          'flex h-full w-full max-w-md flex-col border-slate-200 bg-white text-slate-900 shadow-2xl dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100',
+          side === 'right' ? 'ml-auto border-l' : 'mr-auto border-r',
+          className
+        )}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-800">
+          <h3 className="text-base font-semibold">{title || 'Details'}</h3>
+          <button
+            onClick={onClose}
+            className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+            aria-label="Close drawer"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-5">{children}</div>
+      </div>
+    </div>
+  );
+}
+`,
+    'src/components/ui/Tabs.tsx': `import React from 'react';
+import { cn } from '../../lib/utils.ts';
+
+export interface TabItem<T extends string = string> {
+  id: T;
+  label: string;
+  count?: number;
+}
+
+export interface TabsProps<T extends string = string> {
+  items: TabItem<T>[];
+  value: T;
+  onChange: (next: T) => void;
+  className?: string;
+}
+
+export function Tabs<T extends string = string>({ items, value, onChange, className }: TabsProps<T>) {
+  return (
+    <div className={cn('inline-flex flex-wrap items-center gap-1 rounded-xl border border-slate-200 bg-slate-100/80 p-1 dark:border-slate-800 dark:bg-slate-900', className)}>
+      {items.map((item) => {
+        const active = item.id === value;
+        return (
+          <button
+            key={item.id}
+            onClick={() => onChange(item.id)}
+            className={cn(
+              'rounded-lg px-3 py-1.5 text-xs sm:text-sm font-medium transition-all whitespace-nowrap cursor-pointer',
+              active
+                ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-800 dark:text-white'
+                : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+            )}
+          >
+            {item.label}
+            {typeof item.count === 'number' && <span className="ml-1.5 text-xs opacity-65 tabular-nums">{item.count}</span>}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+`,
+    'src/components/ui/Toast.tsx': `import React, { createContext, useCallback, useContext, useState } from 'react';
+import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
+import { cn } from '../../lib/utils.ts';
+
+export interface ToastInput {
+  title: string;
+  description?: string;
+  variant?: 'default' | 'success' | 'error';
+}
+
+interface ToastItem extends ToastInput {
+  id: string;
+}
+
+const ToastContext = createContext<{ toast: (input: ToastInput) => void }>({
+  toast: () => {},
+});
+
+export function ToastProvider({ children }: { children: React.ReactNode }) {
+  const [items, setItems] = useState<ToastItem[]>([]);
+
+  const toast = useCallback((input: ToastInput) => {
+    const id = String(Date.now() + Math.random());
+    setItems((prev) => [...prev.slice(-3), { ...input, id }]);
+    setTimeout(() => {
+      setItems((prev) => prev.filter((item) => item.id !== id));
+    }, 3400);
+  }, []);
+
+  return (
+    <ToastContext.Provider value={{ toast }}>
+      {children}
+      <div className="fixed bottom-4 right-4 z-[60] flex max-w-sm flex-col gap-2 pointer-events-none">
+        {items.map((item) => (
+          <div
+            key={item.id}
+            className={cn(
+              'pointer-events-auto flex items-start gap-2.5 rounded-xl border px-4 py-3 text-sm shadow-lg backdrop-blur',
+              item.variant === 'error'
+                ? 'border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-800 dark:bg-rose-950/90 dark:text-rose-100'
+                : item.variant === 'success'
+                  ? 'border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/90 dark:text-emerald-100'
+                  : 'border-slate-200 bg-white/95 text-slate-900 dark:border-slate-800 dark:bg-slate-900/95 dark:text-slate-100'
+            )}
+          >
+            {item.variant === 'error' ? (
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-500" />
+            ) : item.variant === 'success' ? (
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+            ) : (
+              <Info className="mt-0.5 h-4 w-4 shrink-0 text-indigo-500" />
+            )}
+            <div className="flex-1 min-w-0">
+              <div className="font-semibold leading-tight">{item.title}</div>
+              {item.description && <div className="mt-0.5 text-xs opacity-80">{item.description}</div>}
+            </div>
+            <button
+              onClick={() => setItems((prev) => prev.filter((x) => x.id !== item.id))}
+              className="opacity-60 hover:opacity-100"
+              aria-label="Dismiss"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ))}
+      </div>
+    </ToastContext.Provider>
+  );
+}
+
+export function useToast() {
+  return useContext(ToastContext);
+}
+`,
+    'src/components/ui/DataTable.tsx': `import React, { useMemo, useState } from 'react';
+import { ArrowUpDown, Search } from 'lucide-react';
+import { cn } from '../../lib/utils.ts';
+
+export interface DataTableColumn<T> {
+  key: keyof T | string;
+  header: string;
+  sortable?: boolean;
+  align?: 'left' | 'right';
+  render?: (row: T) => React.ReactNode;
+}
+
+export interface DataTableProps<T extends Record<string, any>> {
+  data: T[];
+  columns: DataTableColumn<T>[];
+  searchKeys?: Array<keyof T>;
+  searchPlaceholder?: string;
+  emptyText?: string;
+  onRowClick?: (row: T) => void;
+  className?: string;
+}
+
+export function DataTable<T extends Record<string, any>>({
+  data,
+  columns,
+  searchKeys = [],
+  searchPlaceholder = 'Search records...',
+  emptyText = 'No matching records found.',
+  onRowClick,
+  className,
+}: DataTableProps<T>) {
+  const [query, setQuery] = useState('');
+  const [sortKey, setSortKey] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    let list = data;
+    if (q && searchKeys.length > 0) {
+      list = data.filter((row) =>
+        searchKeys.some((k) => String(row[k] ?? '').toLowerCase().includes(q))
+      );
+    }
+    if (sortKey) {
+      list = [...list].sort((a, b) => {
+        const av = a[sortKey];
+        const bv = b[sortKey];
+        if (typeof av === 'number' && typeof bv === 'number') {
+          return sortDir === 'asc' ? av - bv : bv - av;
+        }
+        return sortDir === 'asc'
+          ? String(av ?? '').localeCompare(String(bv ?? ''))
+          : String(bv ?? '').localeCompare(String(av ?? ''));
+      });
+    }
+    return list;
+  }, [data, query, searchKeys, sortKey, sortDir]);
+
+  const toggleSort = (key: string) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
+  };
+
+  return (
+    <div className={cn('space-y-3', className)}>
+      {searchKeys.length > 0 && (
+        <div className="relative max-w-xs">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={searchPlaceholder}
+            className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm outline-none focus:border-indigo-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
+          />
+        </div>
+      )}
+      <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+        <table className="w-full border-collapse text-left text-sm">
+          <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-900/70 dark:text-slate-400">
+            <tr>
+              {columns.map((col) => (
+                <th key={String(col.key)} className={cn('px-4 py-3 whitespace-nowrap', col.align === 'right' && 'text-right')}>
+                  {col.sortable ? (
+                    <button
+                      onClick={() => toggleSort(String(col.key))}
+                      className="inline-flex items-center gap-1 hover:text-slate-900 dark:hover:text-white cursor-pointer"
+                    >
+                      {col.header}
+                      <ArrowUpDown className="h-3 w-3" />
+                    </button>
+                  ) : (
+                    col.header
+                  )}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-200 bg-white dark:divide-slate-800 dark:bg-slate-950/60">
+            {filtered.length === 0 ? (
+              <tr>
+                <td colSpan={columns.length} className="px-4 py-8 text-center text-sm text-slate-500">
+                  {emptyText}
+                </td>
+              </tr>
+            ) : (
+              filtered.map((row, i) => (
+                <tr
+                  key={(row.id as string) || i}
+                  onClick={onRowClick ? () => onRowClick(row) : undefined}
+                  className={cn('transition-colors hover:bg-slate-50 dark:hover:bg-slate-900/60', onRowClick && 'cursor-pointer')}
+                >
+                  {columns.map((col) => (
+                    <td key={String(col.key)} className={cn('px-4 py-3 tabular-nums', col.align === 'right' && 'text-right')}>
+                      {col.render ? col.render(row) : String(row[col.key as keyof T] ?? '')}
+                    </td>
+                  ))}
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+`,
+    'src/components/ui/index.ts': `export { Button, type ButtonProps } from './Button.tsx';
+export { Badge, type BadgeProps } from './Badge.tsx';
+export { Modal, type ModalProps } from './Modal.tsx';
+export { Drawer, type DrawerProps } from './Drawer.tsx';
+export { Tabs, type TabsProps, type TabItem } from './Tabs.tsx';
+export { ToastProvider, useToast, type ToastInput } from './Toast.tsx';
+export { DataTable, type DataTableProps, type DataTableColumn } from './DataTable.tsx';
+`,
     'src/types.ts': `export type ActiveTab = 'overview' | 'explore' | 'settings';
 
 export interface WorkspaceItem {
@@ -434,7 +893,7 @@ boot();
     template,
     createdFiles,
     preLinkedPackages: ['react', 'react-dom', 'lucide-react', 'clsx', 'tailwind-merge', 'motion', 'express', 'cors'],
-    zeroReadContract: `Starter config and entry files (package.json, vite.config.ts, tsconfig.json, index.html, src/main.tsx, src/index.css) are already configured with Tailwind v4 + React 19 + lucide-react + motion. Do NOT call view_file or list_dir on them. Immediately overwrite workspaces/${safeId}/src/types.ts, src/data/*, src/components/*.tsx, src/pages/*.tsx, and src/App.tsx using parallel write_to_file(Overwrite: true) calls.`,
+    zeroReadContract: `Starter config, entry files (package.json, vite.config.ts, tsconfig.json, index.html, src/main.tsx, src/index.css), AND pre-built UI Primitives Kit (src/lib/utils.ts cn() + src/components/ui/: Button, Badge, Modal, Drawer, Tabs, DataTable, ToastProvider, useToast) are ALREADY installed and configured with Tailwind v4 + React 19 + lucide-react + motion. Do NOT call view_file or list_dir on starter config/ui files, and import Button/Modal/Drawer/Tabs/DataTable/useToast directly from './components/ui' (or '../components/ui') instead of rewriting them from scratch! Overwrite workspaces/${safeId}/src/types.ts, src/data/*, src/components/*.tsx, src/pages/*.tsx, and src/App.tsx using parallel write_to_file(Overwrite: true) calls.`,
   };
 }
 

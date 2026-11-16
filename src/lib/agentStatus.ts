@@ -66,6 +66,7 @@ const CODER_TOOLS = new Set([
   'install_applet_dependencies',
   'generate_image',
   'generateImage',
+  'fetch_stock_images',
   'set_up_firebase',
   'deploy_firebase',
   'github_clone',
@@ -84,7 +85,7 @@ export function inferStepAgentRole(step: ActionStep): AgentRole {
   if (/reviewer|critic|self-healing|debug|error|visual qa|tsc|lint|verified live|built project/i.test(labelLower)) {
     return 'debugger';
   }
-  if (/executor|wrote file|edited file|installed|cloned|generated image|firebase/i.test(labelLower)) {
+  if (/executor|wrote file|edited file|installed|cloned|generated image|fetched.*stock|firebase/i.test(labelLower)) {
     return 'coder';
   }
   if (/architect|plan|skill|initialized sandbox|ast|omo/i.test(labelLower)) {

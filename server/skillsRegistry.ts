@@ -29,12 +29,13 @@ export const CODING_SKILLS_REGISTRY: SkillDefinition[] = [
    - Use clamp(2.25rem, 4.5vw, 3.75rem) for hero titles, text-wrap: balance to prevent orphan words, and tabular-nums on all metrics/prices/tables.
 5. Color & Imagery (60-30-10):
    - 60% clean neutral canvas, 30% subdued structural surfaces, 10% concentrated accent strictly on primary CTAs & active states.
-   - Use generate_image for hero banners, product visuals, and editorial art (never fragile placeholder.com URLs). Apply gradient scrims (from-black/75 via-black/30) behind text over photography and provide styled fallback containers on <img> tags.
+   - Use \`fetch_stock_images\` (1 batch call, 0 Gemini image tokens) to download real stock photos locally into \`workspaces/<sessionId>/public/images/\` and reference them via \`./images/<file>\` for seed data, product catalogs, cards, galleries, and avatars. Reserve \`generate_image\` strictly for 1 bespoke hero/brand visual if needed (never fragile placeholder.com URLs). Apply gradient scrims (from-black/75 via-black/30) behind text over photography and provide styled fallback containers on <img> tags.
 6. 100% Interactive Completeness:
    - Every nav link, category filter, search input, cart drawer, modal, tab switch, and contact/checkout form MUST run real JS state updates with user feedback.`,
     compactInstructions: `[COMPACT DESIGN RULES + 1-SHOT PATTERN]
 - 3-Zone Header: [Brand] — [4 single-line links whitespace-nowrap] — [1 CTA]. Zero pills on static labels (use "·" separators). No border-l-4 or generic purple gradients.
 - Fonts: Google Font in index.html (Plus Jakarta Sans / Hind Siliguri + JetBrains Mono), CSS uses \`@import "tailwindcss";\`.
+- Media (0 Tokens): Call \`fetch_stock_images\` ONCE in batch for seed/card/product photos -> use returned \`./images/<file>\`. Never use placeholder.com or unverified external URLs.
 - 100% Working State: every button/tab/filter/modal mutates React state + persists to localStorage.
 Example Header+Grid:
 \`\`\`tsx
@@ -244,11 +245,12 @@ Example Header+Grid:
   {
     name: 'image-generation',
     category: 'ai',
-    description: 'Visual asset strategy: choosing between generate_image, inline SVGs, and verified static assets.',
-    triggers: ['image', 'illustration', 'banner', 'avatar', 'logo', 'icon', 'generate_image'],
-    instructions: `# Image Generation & Asset Strategy Skill
-1. Use 'generate_image' for hero banners, product visuals, avatars, and bespoke illustrations.
-2. Use Lucide icons or crisp inline SVGs for UI icons, badges, and vector logos.`
+    description: 'Zero-token batch stock photo fetching (fetch_stock_images) vs bespoke AI hero generation (generate_image) and inline SVGs.',
+    triggers: ['image', 'illustration', 'banner', 'avatar', 'logo', 'icon', 'generate_image', 'fetch_stock_images', 'seed', 'stock'],
+    instructions: `# Image Generation & Zero-Token Media Strategy Skill
+1. For seed data, product catalogs, cards, galleries, blog thumbnails, and team avatars: ALWAYS call \`fetch_stock_images(items: [...], sessionId)\` in ONE batch call (0 Gemini image tokens, saves real stock photos into \`workspaces/<sessionId>/public/images/\` and returns \`./images/<file>\`).
+2. Reserve \`generate_image\` strictly for 1 custom bespoke hero banner or brand artwork when stock photography isn't suitable.
+3. Use Lucide icons or crisp inline SVGs for UI icons, badges, and vector logos.`
   },
   {
     name: 'planning-mode',
@@ -417,12 +419,38 @@ export function Navbar({ pages, activePage, onNavigate, ctaLabel, onCta }: any) 
 \`\`\`
 
 4. **KPI Strip & Tabular Metrics**:
-- Always use \`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4\` and \`tabular-nums\` on numbers.`,
-    compactInstructions: `[UI COOKBOOK — GOLDEN SNIPPETS]
-- CSS: \`@import "tailwindcss";\` (Tailwind v4 only).
-- Grid: \`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4\`. Numbers: \`tabular-nums\`.
-- Modal: \`fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4\` with \`e.stopPropagation()\`.
-- Static metadata: inline \`<span>Cat · $29</span>\` (never pill badges on static tags).`
+- Always use \`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4\` and \`tabular-nums\` on numbers.
+
+5. **Pre-Built UI Primitives Kit (ALREADY IN \`src/components/ui/\`)**:
+- Save ~40% tokens! Do NOT rewrite Modal/Drawer/Button/Toast/DataTable from scratch—import directly:
+  \`import { Button, Badge, Modal, Drawer, Tabs, DataTable, ToastProvider, useToast } from '../components/ui';\`
+  \`import { cn } from '../lib/utils';\``,
+    compactInstructions: `[UI COOKBOOK + PRE-BUILT KIT]
+- Import ready components from \`./components/ui\` (\`Button, Badge, Modal, Drawer, Tabs, DataTable, ToastProvider, useToast\`) & \`cn\` from \`./lib/utils\`—do NOT rewrite boilerplate modals/drawers/tables!
+- CSS: \`@import "tailwindcss";\` (Tailwind v4). Numbers: \`tabular-nums\`. Static meta: \`Cat · $29\`.`
+  },
+  {
+    name: 'motion-video-studio',
+    category: 'design',
+    description: 'Compact Remotion-style programmatic animation & WebM video exporter using HTML5 Canvas + motion/react + MediaRecorder (works 100% on free LLMs with 0 external video APIs).',
+    triggers: ['animation', 'video', 'motion', 'reel', 'explainer', 'timeline', 'keyframe', 'এনিমেশন', 'ভিডিও', 'মোশন'],
+    instructions: `# Programmatic Animation & Video Export Skill (Free Models / Zero Video API Cost)
+1. **Architecture**: Text LLMs cannot output raw MP4 pixels directly, so build a **Scene-Timeline Motion Studio** inside React:
+   - Define structured \`scenes[]\` (durationSec, title, subtitle, bgGradient, accent, animationStyle: 'kinetic' | 'chart' | 'showcase') and a real playback loop (\`requestAnimationFrame\`).
+   - Draw crisp 1280x720 (or 1080x1920 Shorts/Reels) frames on HTML5 \`<canvas>\` with eased keyframes (cubic/spring), particle backdrops, typography reveal, and progress bars.
+   - Provide **Play / Pause / Scrub Timeline / Scene Editor / Export Video (.webm)** using \`canvas.captureStream(60)\` + \`MediaRecorder(stream, { mimeType: 'video/webm' })\` to record & download a real playable video file!
+2. Use \`motion/react\` (already installed) for interactive UI timeline controls & scene cards.`,
+    compactInstructions: `[COMPACT MOTION VIDEO STUDIO PATTERN]
+- Build a Scene-Timeline Studio in React: \`scenes[]\` + \`requestAnimationFrame\` driving a 1280x720 \`<canvas>\` with eased keyframes + Scrubbing Timeline + Scene Editor.
+- Real Video Download (0 API cost):
+\`\`\`ts
+const stream = canvas.captureStream(60);
+const rec = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' });
+const chunks: Blob[] = [];
+rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+rec.onstop = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(chunks, { type: 'video/webm' })); a.download = 'animation.webm'; a.click(); };
+rec.start();
+\`\`\``
   }
 ];
 

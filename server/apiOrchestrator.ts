@@ -1427,7 +1427,7 @@ function inferToolAgentRole(toolName: string, kind: ActionStepKind): AgentRole {
       'write_to_file', 'fileWrite', 'replace_file_content', 'fileEdit',
       'multi_replace_file_content', 'delete_file', 'fileDelete', 'delete_dir',
       'move', 'moveFile', 'install_applet_package', 'installPackage',
-      'install_applet_dependencies', 'generate_image', 'generateImage',
+      'install_applet_dependencies', 'generate_image', 'generateImage', 'fetch_stock_images',
       'set_up_firebase', 'deploy_firebase', 'github_clone', 'workspace_run',
       'restart_dev_server', 'restartServer', 'focus_mode', 'figma_import',
       'cloudsql_update_schema',
@@ -1493,6 +1493,10 @@ function mapToolToActionStep(toolName: string, args: any): { kind: ActionStepKin
   } else if (toolName === 'generate_image' || toolName === 'generateImage') {
     kind = 'edit';
     label = 'Generated image';
+  } else if (toolName === 'fetch_stock_images') {
+    kind = 'edit';
+    const count = Array.isArray(args?.items) ? args.items.length : 1;
+    label = `Fetched ${count} stock image(s) (0 tokens)`;
   } else if (toolName === 'code_execution_sandbox') {
     kind = 'command';
     label = `Executed ${args?.Language || 'code'} in Sandbox`;
@@ -1601,6 +1605,9 @@ function mapToolToActionStep(toolName: string, args: any): { kind: ActionStepKin
     args?.prompt ||
     args?.Prompt ||
     args?.message ||
+    (toolName === 'fetch_stock_images' && Array.isArray(args?.items)
+      ? args.items.slice(0, 3).map((it: any) => it?.query).filter(Boolean).join(', ')
+      : '') ||
     (Array.isArray(args?.PackageNames) ? args.PackageNames.join(', ') : args?.packageName) ||
     (toolName === 'plan' && Array.isArray(args?.steps)
       ? `${args.steps.length} steps: ${args.steps.slice(0, 3).map((s: any) => (typeof s === 'string' ? s : s?.title || '')).filter(Boolean).join(' → ')}`
@@ -1801,6 +1808,7 @@ const OPENAI_CORE_TOOL_NAMES = new Set([
   'search_web',
   'webFetch',
   'generate_image',
+  'fetch_stock_images',
   'restart_dev_server',
   'ask_question',
   'verify_live_preview',
@@ -1866,6 +1874,7 @@ function selectRelevantTools(
     baseTools.add('workspace_init');
     baseTools.add('workspace_run');
     baseTools.add('install_applet_package');
+    baseTools.add('fetch_stock_images');
   }
   if (/(delete|remove|rename|move|clean|মুছ|সরাও)/i.test(lower)) {
     baseTools.add('delete_file');
@@ -1900,6 +1909,7 @@ function selectRelevantTools(
     baseTools.add('visual_qa_review');
   }
   if (/(website|landing|store|shop|ecommerce|e-commerce|portfolio|dashboard|saas|game|pwa|portal|platform|app|ওয়েবসাইট|ওয়েবসাইট|ড্যাশবোর্ড|ই-কমার্স|স্টোর|পোর্টফোলিও|গেম|অ্যাপ|বানাও|তৈরি)/i.test(lower)) {
+    baseTools.add('fetch_stock_images');
     baseTools.add('generate_image');
     baseTools.add('visual_qa_review');
     baseTools.add('workspace_init');
@@ -1909,7 +1919,8 @@ function selectRelevantTools(
     baseTools.add('search_web');
     baseTools.add('webFetch');
   }
-  if (/(image|banner|logo|icon|illustration|ছবি|লোগো)/i.test(lower) || mode === 'image') {
+  if (/(image|photo|stock|seed|catalog|product|avatar|gallery|banner|logo|icon|illustration|ছবি|লোগো)/i.test(lower) || mode === 'image') {
+    baseTools.add('fetch_stock_images');
     baseTools.add('generate_image');
   }
   const hasExplicitFirebaseIntent = /(firebase|firestore|firebaseconfig|ফায়ারবেস|ফায়ারবেস)/i.test(lower);
@@ -2269,6 +2280,7 @@ function selectPhaseOpenAITools(
       'workspace_init',
       'write_to_file',
       'install_applet_package',
+      'fetch_stock_images',
       'generate_image',
       'set_up_firebase',
       'ask_question',
@@ -2300,6 +2312,7 @@ function selectPhaseOpenAITools(
       'lint_applet',
       'api_contract_checker',
       'read_skill',
+      'fetch_stock_images',
       'generate_image',
       'set_up_firebase',
       'deploy_firebase',
@@ -4869,11 +4882,27 @@ MANDATORY WEBSITE REPLICATION GUIDELINES:
       return lastMessage + handoffNote;
     };
 
+    const safeSessionId = sessionId ? sanitizeSessionId(sessionId) : '';
+    const targetsNexusInternals =
+      /(?:server\/|apiOrchestrator|sandboxManager|harnessEngine|websiteDeployer|geminiService|GoogleAIStudioCoderView|SecretsModal|SidebarDrawer|FirebaseModal|GitHubSyncModal|LogsModal|ToolsModal|SettingsModal|AgentStatusStrip|AskQuestionModal|agentStatus|নেক্সাস)/i.test(
+        initialLastMessage
+      );
+    const hasExistingSessionWorkspace = safeSessionId
+      ? await fs.access(path.resolve(process.cwd(), 'workspaces', safeSessionId, 'src')).then(() => true).catch(() => false)
+      : false;
+    const sandboxLockSessionId =
+      safeSessionId &&
+      !targetsNexusInternals &&
+      (shouldUseModularArchitecture(initialLastMessage) || hasExistingSessionWorkspace)
+        ? safeSessionId
+        : undefined;
+
     const buildExecCtx = (
       invoker: (sys: string, usr: string) => Promise<string>,
       geminiCreds?: { apiKey: string; model: string }
     ): ToolExecutionContext => ({
       sessionId,
+      sandboxLockSessionId,
       readFiles: sharedProgress.readFiles,
       geminiApiKey: geminiCreds?.apiKey,
       geminiModel: geminiCreds?.model,

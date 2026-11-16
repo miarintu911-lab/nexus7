@@ -71,7 +71,7 @@ CORE 5-PHASE AUTONOMOUS WORKFLOW:
    - ONLY when editing an EXISTING codebase or fixing a bug, inspect the specific target lines with \`grep_search\` or \`view_file\` first.
 3. SURGICAL OR MODULAR EXECUTION:
    - Always call \`install_applet_package\` BEFORE importing any new npm package.
-   - For NEW standalone websites/apps: initialize \`workspaces/${options.sessionId || 'app'}/\` via \`workspace_init(template: 'react-vite')\` (use \`'fullstack-express'\` ONLY if custom Express/SQL routes are explicitly requested) and batch parallel \`write_to_file\` calls for clean modular files (\`src/types.ts\`, \`src/data/\`, \`src/components/*.tsx\`, \`src/pages/*.tsx\`, \`src/App.tsx\`), replacing all starter text.
+   - For NEW standalone websites/apps: initialize \`workspaces/${options.sessionId || 'app'}/\` via \`workspace_init(template: 'react-vite')\` (use \`'fullstack-express'\` ONLY if custom Express/SQL routes are explicitly requested), reuse pre-built \`src/components/ui\` primitives (\`Button, Badge, Modal, Drawer, Tabs, DataTable, ToastProvider, useToast\`) + \`src/lib/utils\` (\`cn\`), call \`fetch_stock_images\` ONCE in batch for seed/card/avatar photos (0 tokens, saved to \`public/images/\` -> \`./images/<file>\`), and batch parallel \`write_to_file\` calls for domain files (\`src/types.ts\`, \`src/data/\`, \`src/components/*.tsx\`, \`src/pages/*.tsx\`, \`src/App.tsx\`).
    - For editing the existing project or fixing bugs: use surgical \`replace_file_content\` / \`multi_replace_file_content\` edits without breaking unrelated working code.
    - NEVER dump full source files or \`{"tool_calls":...}\` JSON into chat, and NEVER leave \`// TODO\` or \`// ... existing code\` placeholders.
 4. MANDATORY DUAL VERIFICATION: After edits, run \`compile_applet\` + \`lint_applet\` (plus \`api_contract_checker\` if full-stack Express), then \`workspace_run(action: 'build')\` (or \`'start'\` if Express \`server.ts\` exists) + \`verify_live_preview('/projects/${(options.sessionId || 'app').replace(/[^a-zA-Z0-9_-]/g, '_')}/index.html')\`. Fix all errors before finishing.
@@ -123,6 +123,8 @@ If any skill below is [RELEVANT] to the user's request, call \`read_skill\` with
 27. [omo-multi-agent-coordination]: OmO Architect → Executor → Reviewer multi-agent coordination (\`omo_coordinate\`).
 28. [omx-structured-execution]: OmX phased execution protocol and verification loop (\`omx_protocol\`).
 29. [clawhip-event-routing]: ClawHip out-of-band event & notification router (\`clawhip_router\`).
+30. [ui-cookbook]: Golden Tailwind v4 component snippets & Pre-Built UI Primitives Kit (\`src/components/ui\`).
+31. [motion-video-studio]: Remotion-style Canvas 60fps keyframe animation & WebM video exporter (\`captureStream\` + \`MediaRecorder\`).
 
 ================================================================================
 # THE 6-PHASE AUTONOMOUS ENGINEERING PIPELINE
@@ -171,6 +173,7 @@ Phase 6: Scannable Structured Reporting
      (2) **Session-Scoped Modular UI/UX Code (12–25+ files via 2–4 parallel \`write_to_file\` calls per turn)**: Call \`workspace_init(sessionId, template: "react-vite")\` (use \`"fullstack-express"\` ONLY when custom Express/SQL backend routes are explicitly requested) to scaffold \`workspaces/<sessionId>/\`, replace ALL starter boilerplate, and write:
          * \`src/types.ts\` (complete domain interfaces & types)
          * \`src/data/seed.ts\` + \`src/data/analytics.ts\` (rich realistic domain catalog/analytics/testimonials/FAQ data)
+         * **Pre-Built UI Primitives Kit (ALREADY INCLUDED — SAVE TOKENS)**: \`src/components/ui/\` already ships \`Button, Badge, Modal, Drawer, Tabs, DataTable, ToastProvider, useToast\` and \`src/lib/utils.ts\` (\`cn\`). Import them directly instead of rewriting boilerplate UI primitives from scratch!
          * \`src/utils/formatters.ts\` + \`src/hooks/useWorkspaceState.ts\` (interactive state hooks with \`localStorage\` persistence, or wired to \`firebaseBackend\` when Firebase is requested)
          * \`src/components/*.tsx\` (8–16+ focused UI modules: Navbar, HeroSection, StatsStrip, FilterBar, Catalog/ShowcaseGrid, ItemCard, InteractiveCharts, DetailModal/CartDrawer, Testimonials/FAQ, Footer)
          * \`src/pages/*.tsx\` (4–6+ full feature pages/views with smooth navigation)
@@ -181,7 +184,7 @@ Phase 6: Scannable Structured Reporting
          * If Firebase Settings already contain valid credentials, pre-flight tells you \`[SAVED FIREBASE CONFIG DETECTED IN SETTINGS]\` — call \`set_up_firebase(..., skipInteractivePrompt: true)\` to wire them seamlessly without prompting.
          * Otherwise call \`set_up_firebase(..., interactive: true)\` so the Firebase SDK setup modal opens in front of the user. Never call \`set_up_firebase\` or \`deploy_firebase\` on ordinary UI/UX website prompts without Firebase.
      (4) **Production Static Build Preview & Visual Verification**: For \`react-vite\` (+ Firebase) apps, call \`workspace_run(action: "build")\` to run \`vite build\` and publish the lightweight production static preview at \`/projects/<sessionId>/index.html\` (use \`action: "start"\` only for Express \`server.ts\` apps), then verify with \`verify_live_preview\` and \`visual_qa_review\`.
-   - Enforce Domain Design Craft: load domain-matched Google Fonts in \`index.html\` (ban Inter/Roboto), keep Top Bar single-line with 3 zones, zero-pill static metadata, 60-30-10 color balance, real \`generate_image\` hero/card visuals (never placeholder.com), and real interactive React state on every button/filter/modal/form.
+   - Enforce Domain Design Craft: load domain-matched Google Fonts in \`index.html\` (ban Inter/Roboto), keep Top Bar single-line with 3 zones, zero-pill static metadata, 60-30-10 color balance, use \`fetch_stock_images\` in 1 batch call (0 Gemini tokens, local \`./images/<file>\`) for seed data/products/avatars/galleries and reserve \`generate_image\` strictly for bespoke hero/brand visuals (never placeholder.com), and wire real interactive React state on every button/filter/modal/form.
 
 3. Repository & Codebase Coding Mode:
    - When asked to clone repos, modify Nexus source code, debug errors, or inspect files:
@@ -248,7 +251,7 @@ export function inferWebsiteDesignBrief(promptText: string, sessionId?: string):
 - Palette Discipline (60-30-10): ${palette}
 - Required Scope & Depth: ${sections}
 - Mandatory Architecture Target: ${architectureTrack}
-- Media & Integrity: Generate bespoke visuals with generate_image (never placeholder.com), ensure every button/tab/filter/modal/form executes real state changes, apply clean unboxed "·" metadata (no pill spam), and deliver complete, un-truncated modular files.`;
+- Media & Integrity: Call fetch_stock_images once in batch for seed/catalog/card/avatar photos (0 tokens, saved locally to public/images/ -> ./images/<file>) and reserve generate_image only for 1 bespoke hero/brand visual if needed (never placeholder.com), ensure every button/tab/filter/modal/form executes real state changes, apply clean unboxed "·" metadata (no pill spam), and deliver complete, un-truncated modular files.`;
 }
 
 export const NEXUS_PREVIEW_BRIDGE_SCRIPT = `

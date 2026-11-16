@@ -9,6 +9,7 @@ import { Client as PgClient } from "pg";
 import type { Response } from "express";
 import { autoDeployWebsiteFromText, deployHtmlFile, getNexusSystemInstruction, prepareGeminiHistoryAndLastMessage } from "./websiteDeployer.ts";
 import { getSkillByName, listAllSkillsSummary } from "./skillsRegistry.ts";
+import { fetchBatchStockImages } from "./mediaFetcher.ts";
 import {
   verifyLivePreviewWithDom,
   freeWebSearch,
@@ -88,6 +89,7 @@ export interface FirebaseSetupResponsePayload {
 
 export interface ToolExecutionContext {
   sessionId?: string;
+  sandboxLockSessionId?: string;
   signal?: AbortSignal;
   geminiApiKey?: string;
   geminiModel?: string;
@@ -634,7 +636,7 @@ const searchWebTool: FunctionDeclaration = {
 
 const generateImageTool: FunctionDeclaration = {
   name: "generate_image",
-  description: "Generate high-fidelity visual assets, app icons, hero banners, or illustrations based on a prompt.",
+  description: "Generate a custom bespoke hero banner, brand illustration, or app icon via AI image generation. For seed data, product cards, catalogs, avatars, or multiple photos, use fetch_stock_images instead (0 AI image tokens).",
   parameters: {
     type: Type.OBJECT,
     properties: {
@@ -643,6 +645,32 @@ const generateImageTool: FunctionDeclaration = {
       AspectRatio: { type: Type.STRING, enum: ["1:1", "16:9", "4:3", "9:16", "3:4"], description: "Aspect ratio." },
     },
     required: ["Prompt"],
+  },
+};
+
+const fetchStockImagesTool: FunctionDeclaration = {
+  name: "fetch_stock_images",
+  description: "Batch-fetch real royalty-free stock photos (Openverse, Wikimedia Commons, Wikipedia, zero-token fallback) and save them locally in a single call (0 Gemini image tokens). Ideal for seed data, product catalogs, cards, galleries, blog thumbnails, and avatars. Automatically writes into workspaces/<sessionId>/public/images/ and returns ready-to-use './images/<file>' URLs.",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      items: {
+        type: Type.ARRAY,
+        description: "List of up to 16 images to fetch concurrently in one batch call.",
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            query: { type: Type.STRING, description: "Concise English descriptive search query (e.g. 'artisan iced latte coffee glass', 'modern wireless headphones')." },
+            filename: { type: Type.STRING, description: "Optional clean file slug without extension (e.g. 'iced_latte', 'headphones')." },
+            aspectRatio: { type: Type.STRING, enum: ["1:1", "16:9", "4:3", "3:4", "9:16"], description: "Target aspect ratio (default: 16:9, use 1:1 for products/avatars)." },
+          },
+          required: ["query"],
+        },
+      },
+      sessionId: { type: Type.STRING, description: "Optional workspace session ID (defaults to active session)." },
+      targetDir: { type: Type.STRING, description: "Optional explicit relative directory override (defaults to workspaces/<sessionId>/public/images)." },
+    },
+    required: ["items"],
   },
 };
 
@@ -1095,6 +1123,7 @@ export const serverTools: FunctionDeclaration[] = [
   persistenceStatusTool,
   searchWebTool,
   generateImageTool,
+  fetchStockImagesTool,
   askQuestionTool,
   setUpFirebaseTool,
   deployFirebaseTool,
@@ -1907,17 +1936,52 @@ function spawnCommandWithStream(
   });
 }
 
-// Helper to normalize file paths safely within workspace
-function resolveSafePath(userPath: string, isWebsiteTarget: boolean = false): { abs: string; relative: string; isProtected: boolean } {
+// Helper to normalize file paths safely within workspace (with strict session sandbox isolation)
+function resolveSafePath(
+  userPath: string,
+  isWebsiteTarget: boolean = false,
+  sandboxLockSessionId?: string
+): { abs: string; relative: string; isProtected: boolean; redirectedFrom?: string } {
   let cleaned = (userPath || '').trim().replace(/^[/\\]+/, '');
   if (!cleaned) cleaned = '.';
 
-  // If writing a standalone website HTML outside workspaces/src/projects, route to projects/
+  let redirectedFrom: string | undefined;
+  const safeWsId = sandboxLockSessionId
+    ? sandboxLockSessionId.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64)
+    : '';
+
   if (
+    safeWsId &&
+    !cleaned.startsWith('workspaces/') &&
+    !cleaned.startsWith('projects/') &&
+    !cleaned.startsWith('public/generated') &&
+    !cleaned.startsWith('.secrets') &&
+    !cleaned.startsWith('.nexus') &&
+    (
+      cleaned === 'index.html' ||
+      cleaned === 'package.json' ||
+      cleaned === 'tsconfig.json' ||
+      cleaned === 'vite.config.ts' ||
+      cleaned === 'firestore.rules' ||
+      cleaned === 'server.ts' ||
+      cleaned === 'src' ||
+      cleaned.startsWith('src/') ||
+      cleaned === 'public' ||
+      cleaned.startsWith('public/') ||
+      cleaned === 'server' ||
+      cleaned.startsWith('server/') ||
+      cleaned.startsWith('firebase') ||
+      (isWebsiteTarget && cleaned.endsWith('.html'))
+    )
+  ) {
+    redirectedFrom = userPath;
+    cleaned = `workspaces/${safeWsId}/${cleaned}`;
+  } else if (
     isWebsiteTarget &&
     (cleaned === 'index.html' ||
       (cleaned.endsWith('.html') && !cleaned.startsWith('projects/') && !cleaned.startsWith('src/') && !cleaned.startsWith('workspaces/')))
   ) {
+    // Fallback for legacy non-locked static HTML targets
     cleaned = path.join('projects', cleaned);
   }
 
@@ -1926,7 +1990,7 @@ function resolveSafePath(userPath: string, isWebsiteTarget: boolean = false): { 
   // Protect Nexus root config/server files, while allowing editing inside isolated workspaces/<id>/
   const isProtected = ['server.ts', 'vite.config.ts', 'tsconfig.json'].includes(relative);
 
-  return { abs, relative, isProtected };
+  return { abs, relative, isProtected, redirectedFrom };
 }
 
 // Server-side tool executor
@@ -1984,6 +2048,7 @@ export async function executeServerTool(
       'webSearch': `Searching: ${args.query}...`,
       'generate_image': `Generating image: ${args.Prompt || args.prompt}...`,
       'generateImage': `Generating image: ${args.prompt || args.Prompt}...`,
+      'fetch_stock_images': `Fetching ${(args.items || []).length || 1} stock image(s) locally (0 tokens)...`,
       'ask_question': `Asking clarifying questions...`,
       'verify_live_preview': `Verifying live preview (${args.targetUrl || '/projects/index.html'})...`,
       'visual_qa_review': `Running Visual QA Screenshot & Layout Audit (${args.targetUrl || '/projects/index.html'})...`,
@@ -2010,7 +2075,7 @@ export async function executeServerTool(
       case 'fileRead': {
         const targetPath = args.AbsolutePath || args.filePath;
         if (!targetPath) return { error: "Path is required" };
-        const { abs, relative } = resolveSafePath(targetPath);
+        const { abs, relative } = resolveSafePath(targetPath, false, execCtx?.sandboxLockSessionId);
         if (!abs.startsWith(process.cwd())) return { error: "Access denied" };
 
         try {
@@ -2047,10 +2112,10 @@ export async function executeServerTool(
         if (!rawTarget) return { error: "TargetFile is required" };
         if (typeof code !== 'string') return { error: "CodeContent string is required" };
 
-        const { abs, relative, isProtected } = resolveSafePath(rawTarget, true);
+        const { abs, relative, isProtected, redirectedFrom } = resolveSafePath(rawTarget, true, execCtx?.sandboxLockSessionId);
         if (!abs.startsWith(process.cwd())) return { error: "Access denied" };
         if (isProtected) {
-          return { error: `Protected file: writing to system root file ${relative} is prohibited. Write inside 'projects/' or 'src/'.` };
+          return { error: `Protected file: writing to system root file ${relative} is prohibited. Write inside 'workspaces/<sessionId>/' or 'src/'.` };
         }
 
         const repairedWrite = args.Append
@@ -2094,6 +2159,7 @@ export async function executeServerTool(
           success: true, 
           path: `/${relative}`,
           cleanPath: relative,
+          ...(redirectedFrom ? { sandboxRedirectedFrom: redirectedFrom } : {}),
           ...(repairedWrite.repairsApplied.length > 0 ? { repairsApplied: repairedWrite.repairsApplied } : {}),
           previewUrl,
           deployedHtml,
@@ -2111,7 +2177,7 @@ export async function executeServerTool(
           return { error: "Missing required arguments: TargetFile, TargetContent, and ReplacementContent" };
         }
 
-        const { abs, relative } = resolveSafePath(rawTarget, false);
+        const { abs, relative, redirectedFrom } = resolveSafePath(rawTarget, false, execCtx?.sandboxLockSessionId);
         if (!abs.startsWith(process.cwd())) return { error: "Access denied" };
 
         let content = await fs.readFile(abs, 'utf-8');
@@ -2188,6 +2254,7 @@ export async function executeServerTool(
           path: `/${relative}`,
           cleanPath: relative,
           matchMode,
+          ...(redirectedFrom ? { sandboxRedirectedFrom: redirectedFrom } : {}),
           ...(repairedReplace.repairsApplied.length > 0 ? { repairsApplied: repairedReplace.repairsApplied } : {}),
           previewUrl,
           deployedHtml,
@@ -2202,7 +2269,7 @@ export async function executeServerTool(
           return { error: "TargetFile and ReplacementChunks array are required" };
         }
 
-        const { abs, relative } = resolveSafePath(rawTarget, false);
+        const { abs, relative, redirectedFrom } = resolveSafePath(rawTarget, false, execCtx?.sandboxLockSessionId);
         if (!abs.startsWith(process.cwd())) return { error: "Access denied" };
 
         let content = await fs.readFile(abs, 'utf-8');
@@ -2262,6 +2329,7 @@ export async function executeServerTool(
           success: true,
           path: `/${relative}`,
           cleanPath: relative,
+          ...(redirectedFrom ? { sandboxRedirectedFrom: redirectedFrom } : {}),
           ...(repairedMulti.repairsApplied.length > 0 ? { repairsApplied: repairedMulti.repairsApplied } : {}),
           previewUrl,
           deployedHtml,
@@ -2272,7 +2340,7 @@ export async function executeServerTool(
       case 'list_dir':
       case 'listDir': {
         const dir = args.DirectoryPath || args.dirPath || '.';
-        const { abs, relative } = resolveSafePath(dir);
+        const { abs, relative } = resolveSafePath(dir, false, execCtx?.sandboxLockSessionId);
         if (!abs.startsWith(process.cwd())) return { error: "Access denied" };
 
         const entries = await fs.readdir(abs, { withFileTypes: true });
@@ -2810,7 +2878,7 @@ export async function executeServerTool(
       case 'delete_file':
       case 'fileDelete': {
         const rawTarget = args.TargetFile || args.filePath;
-        const { abs, relative, isProtected } = resolveSafePath(rawTarget);
+        const { abs, relative, isProtected } = resolveSafePath(rawTarget, false, execCtx?.sandboxLockSessionId);
         if (!abs.startsWith(process.cwd())) return { error: "Access denied" };
         if (isProtected) return { error: `Protected file: cannot delete ${relative}` };
 
@@ -2823,7 +2891,7 @@ export async function executeServerTool(
         if (!rawTarget || typeof rawTarget !== 'string') {
           return { error: "DirectoryPath is required" };
         }
-        const { abs, relative } = resolveSafePath(rawTarget);
+        const { abs, relative } = resolveSafePath(rawTarget, false, execCtx?.sandboxLockSessionId);
         if (!abs.startsWith(process.cwd())) return { error: "Access denied" };
         if (['src', 'server', 'public', 'node_modules', '.', ''].includes(relative)) {
           return { error: `Protected directory: cannot delete ${relative || '/'}` };
@@ -2842,8 +2910,8 @@ export async function executeServerTool(
         const src = args.SourcePath || args.sourcePath;
         const dest = args.DestinationPath || args.destinationPath;
         if (!src || !dest) return { error: "SourcePath and DestinationPath are required" };
-        const { abs: absSrc, relative: relSrc, isProtected } = resolveSafePath(src, false);
-        const { abs: absDest, relative: relDest } = resolveSafePath(dest, false);
+        const { abs: absSrc, relative: relSrc, isProtected } = resolveSafePath(src, false, execCtx?.sandboxLockSessionId);
+        const { abs: absDest, relative: relDest } = resolveSafePath(dest, false, execCtx?.sandboxLockSessionId);
         if (!absSrc.startsWith(process.cwd()) || !absDest.startsWith(process.cwd())) return { error: "Access denied" };
         if (isProtected) return { error: `Protected file: cannot move ${relSrc}` };
 
@@ -3056,6 +3124,18 @@ export async function executeServerTool(
           provider: 'local-svg-artwork',
           description: `Generated bespoke vector artwork saved locally to /generated/${svgName}`,
         };
+      }
+
+      case 'fetch_stock_images': {
+        const items = Array.isArray(args.items)
+          ? args.items
+          : args.query
+            ? [{ query: String(args.query), filename: args.filename, aspectRatio: args.aspectRatio }]
+            : [];
+        return await fetchBatchStockImages(items, {
+          sessionId: args.sessionId || execCtx?.sessionId,
+          targetDir: args.targetDir,
+        });
       }
 
       case 'ask_question': {

@@ -469,7 +469,7 @@ export function getVerifiedScaffoldBlueprint(promptText: string, sessionId?: str
   1) Call \`plan(steps: [...])\` + \`read_skill("frontend-design")\`${wantsFirebase ? ' + `read_skill("firebase-integration")`' : ''} first.
   2) Call \`workspace_init(sessionId: "${safeId}", template: "${needsExpressBackend ? 'fullstack-express' : 'react-vite'}")\`, replace ALL starter template text, and batch 2–4 parallel \`write_to_file\` calls per turn inside \`workspaces/${safeId}/\`:
      * \`src/types.ts\` (comprehensive domain TypeScript interfaces, filter/sort/modal/cart/analytics types)
-     * \`src/data/seed.ts\` + \`src/data/analytics.ts\` (rich multi-category dataset: 15–30+ items, time-series metrics, testimonials, pricing plans, FAQ)${firebaseStep}
+     * Call \`fetch_stock_images(items: [...], sessionId: "${safeId}")\` ONCE in batch for seed/catalog/card/avatar images (0 tokens, saved to \`public/images/\` -> \`./images/<file>\`), then write \`src/data/seed.ts\` + \`src/data/analytics.ts\` (rich multi-category dataset referencing those verified \`./images/...\` URLs)${firebaseStep}
   4) Batch parallel \`write_to_file\` calls for:
      * \`src/utils/formatters.ts\` + \`src/hooks/useWorkspaceState.ts\` (${wantsFirebase ? 'real CRUD & auth state wired to `src/services/firebaseBackend.ts` + local fallback' : 'rich interactive React state + localStorage persistence'})
      * \`src/components/*.tsx\` (8–14+ focused UI/UX components: Navbar, MobileNavDrawer, HeroSection, StatsStrip, FilterSidebar, SearchCommandBar, CatalogOrGrid, ItemCard, InteractiveChartPanel, ComparisonTable, DetailModal, CartOrActionDrawer, TestimonialsSection, FaqAccordion, Footer)
@@ -517,7 +517,7 @@ export function buildDeterministicTaskPlan(promptText: string): string | null {
 
   return `[MANDATORY HARNESS EXECUTION CHECKLIST]:
 1. [Plan & Design Skill] Call \`plan(steps: [...])\` + \`read_skill("frontend-design")\`${wantsFirebase ? ' + `read_skill("firebase-integration")`' : ''} before writing app files.
-2. [Scaffold, Types & Data] Call \`workspace_init(template: "react-vite")\` to create \`workspaces/<sessionId>/\`, then write rich \`src/types.ts\`, \`src/data/seed.ts\`, \`src/data/analytics.ts\`.${firebasePlanStep}
+2. [Scaffold, Stock Media & Data] Call \`workspace_init(template: "react-vite")\` to create \`workspaces/<sessionId>/\`, call \`fetch_stock_images\` ONCE in batch for seed/product/avatar images (0 tokens, saved to \`public/images/\` -> \`./images/<file>\`), then write rich \`src/types.ts\`, \`src/data/seed.ts\`, \`src/data/analytics.ts\`.${firebasePlanStep}
 4. [Modular Components & Pages] Batch parallel \`write_to_file\` calls (2-4 files per turn) across \`src/hooks/useWorkspaceState.ts\`, \`src/components/*.tsx\`, \`src/pages/*.tsx\`, \`src/App.tsx\`${wantsFirebase ? ' (wrapped in `<FirebaseProvider>`)' : ''}.
 5. [Build Static Preview & Verify] Call \`workspace_run(action: "build")\` to publish lightweight static preview to \`/projects/<sessionId>/index.html\` (or \`action: "start"\` if Express \`server.ts\` exists), then run \`verify_live_preview\`.`;
 }
@@ -543,7 +543,8 @@ export async function buildHarnessPreFlightContext(
       blocks.push(
         `[GREENFIELD ZERO-READ FAST-PATH (workspaces/${safeId}/)]:\n` +
         `- Pre-linked starter packages (DO NOT npm install): react, react-dom, lucide-react, clsx, tailwind-merge, motion, firebase, express, cors, vite, @vitejs/plugin-react, @tailwindcss/vite.\n` +
-        `- ZERO-READ RULE: This is a brand-new standalone website. Do NOT call list_dir, analyze_project, codebase_graph, grep_search, or view_file on Nexus root files OR starter boilerplate (package.json, vite.config.ts, tsconfig.json, src/main.tsx, src/index.css).\n` +
+        `- Pre-built UI Primitives Kit (DO NOT rewrite from scratch — import from './components/ui'): Button, Badge, Modal, Drawer, Tabs, DataTable, ToastProvider, useToast (+ cn from './lib/utils').\n` +
+        `- ZERO-READ RULE: This is a brand-new standalone website. Do NOT call list_dir, analyze_project, codebase_graph, grep_search, or view_file on Nexus root files OR starter boilerplate (package.json, vite.config.ts, tsconfig.json, src/main.tsx, src/index.css, src/components/ui/*).\n` +
         `- Start immediately: plan -> read_skill("frontend-design") -> workspace_init(sessionId: "${safeId}", template: "react-vite") -> parallel write_to_file(Overwrite: true) calls -> workspace_run(action: "build").`
       );
     } else if (isCodeTask) {
