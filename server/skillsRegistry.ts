@@ -432,23 +432,30 @@ export function Navbar({ pages, activePage, onNavigate, ctaLabel, onCta }: any) 
   {
     name: 'motion-video-studio',
     category: 'design',
-    description: 'Compact Remotion-style programmatic animation & WebM video exporter using HTML5 Canvas + motion/react + MediaRecorder (works 100% on free LLMs with 0 external video APIs).',
-    triggers: ['animation', 'video', 'motion', 'reel', 'explainer', 'timeline', 'keyframe', 'এনিমেশন', 'ভিডিও', 'মোশন'],
-    instructions: `# Programmatic Animation & Video Export Skill (Free Models / Zero Video API Cost)
-1. **Architecture**: Text LLMs cannot output raw MP4 pixels directly, so build a **Scene-Timeline Motion Studio** inside React:
-   - Define structured \`scenes[]\` (durationSec, title, subtitle, bgGradient, accent, animationStyle: 'kinetic' | 'chart' | 'showcase') and a real playback loop (\`requestAnimationFrame\`).
-   - Draw crisp 1280x720 (or 1080x1920 Shorts/Reels) frames on HTML5 \`<canvas>\` with eased keyframes (cubic/spring), particle backdrops, typography reveal, and progress bars.
-   - Provide **Play / Pause / Scrub Timeline / Scene Editor / Export Video (.webm)** using \`canvas.captureStream(60)\` + \`MediaRecorder(stream, { mimeType: 'video/webm' })\` to record & download a real playable video file!
-2. Use \`motion/react\` (already installed) for interactive UI timeline controls & scene cards.`,
-    compactInstructions: `[COMPACT MOTION VIDEO STUDIO PATTERN]
-- Build a Scene-Timeline Studio in React: \`scenes[]\` + \`requestAnimationFrame\` driving a 1280x720 \`<canvas>\` with eased keyframes + Scrubbing Timeline + Scene Editor.
-- Real Video Download (0 API cost):
+    description: 'Claude/Remotion-style Audio + Video + Kinetic Text Motion Studio using HTML5 Canvas + Web Audio API + MediaRecorder (works 100% on free LLMs with 0 external video APIs).',
+    triggers: ['animation', 'video', 'motion', 'reel', 'explainer', 'timeline', 'keyframe', 'audio', 'এনিমেশন', 'ভিডিও', 'মোশন', 'অডিও'],
+    instructions: `# Programmatic Audio + Video + Text Motion Studio (Free Models / Zero Video API Cost)
+1. **Architecture**: Text LLMs cannot output raw camera MP4 pixels directly, so build a **Remotion-style Audio + Video + Text Motion Studio** inside React:
+   - Define structured \`scenes[]\` (\`durationSec\`, \`title\`, \`subtitle\`, \`caption\`, \`bgGradient\`, \`accent\`, \`animationStyle\`, \`audioPreset: 'ambient' | 'upbeat' | 'cinematic' | 'none'\`, \`bpm\`) and a 60fps \`requestAnimationFrame\` timeline engine.
+   - **Visual & Kinetic Text Layer**: Draw crisp 1280x720 (Landscape) or 1080x1920 (Shorts/Reels) frames on HTML5 \`<canvas>\` with eased keyframes (cubic/spring), animated backgrounds/particles, smooth typography reveal, subtitles/lower-thirds, and progress bar.
+   - **Synchronized Audio Engine (Web Audio API)**: Use \`AudioContext\` + \`ctx.createMediaStreamDestination()\` to synthesize timed chords/beats/chimes (or mix an uploaded custom audio file via \`createMediaElementSource\`) routed simultaneously to \`ctx.destination\` (speakers) AND \`audioDest\` (recording bus) so audio & animation stay frame-synced!
+   - **Combined Audio + Video + Text Export (.webm)**: Mux \`canvas.captureStream(60).getVideoTracks()\` + \`audioDest.stream.getAudioTracks()\` into a single \`new MediaStream([...videoTracks, ...audioTracks])\` and record with \`MediaRecorder\` (\`video/webm;codecs=vp9,opus\` fallback \`video/webm\`) to download a real playable **video file with synchronized audio and animated text**!
+   - Also include Play / Pause / Scrub Timeline / Volume / Custom Audio Upload / Aspect Ratio Toggle (16:9 / 9:16) / Scene Editor.`,
+    compactInstructions: `[COMPACT AUDIO + VIDEO + TEXT MOTION STUDIO PATTERN]
+- Build a Remotion-style React Motion Studio: \`scenes[]\` (title, subtitle, caption, durationSec, bgGradient, accent, bpm) + \`requestAnimationFrame\` 1280x720/1080x1920 \`<canvas>\` + Scrubbing Timeline + Scene & Text Editor.
+- Synchronized Audio + Video Export (Web Audio API + Canvas + MediaRecorder, 0 API cost):
 \`\`\`ts
-const stream = canvas.captureStream(60);
-const rec = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' });
+const ctx = new AudioContext();
+const dest = ctx.createMediaStreamDestination();
+// route oscillators / beat gain nodes OR uploaded audio element -> gain -> ctx.destination & dest
+const videoTracks = canvas.captureStream(60).getVideoTracks();
+const audioTracks = dest.stream.getAudioTracks();
+const mixed = new MediaStream([...videoTracks, ...audioTracks]);
+const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus') ? 'video/webm;codecs=vp9,opus' : 'video/webm';
+const rec = new MediaRecorder(mixed, { mimeType: mime });
 const chunks: Blob[] = [];
 rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
-rec.onstop = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(chunks, { type: 'video/webm' })); a.download = 'animation.webm'; a.click(); };
+rec.onstop = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(chunks, { type: 'video/webm' })); a.download = 'studio-video.webm'; a.click(); };
 rec.start();
 \`\`\``
   }

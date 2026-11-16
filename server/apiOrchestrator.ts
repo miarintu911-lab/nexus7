@@ -1,6 +1,7 @@
 import { GoogleGenAI, Type, ThinkingLevel, type FunctionDeclaration } from "@google/genai";
 import fs from "fs/promises";
 import path from "path";
+import zlib from "zlib";
 import { exec } from "child_process";
 import { promisify } from "util";
 import type { Response } from "express";
@@ -1908,7 +1909,7 @@ function selectRelevantTools(
     baseTools.add('focus_mode');
     baseTools.add('visual_qa_review');
   }
-  if (/(website|landing|store|shop|ecommerce|e-commerce|portfolio|dashboard|saas|game|pwa|portal|platform|app|ওয়েবসাইট|ওয়েবসাইট|ড্যাশবোর্ড|ই-কমার্স|স্টোর|পোর্টফোলিও|গেম|অ্যাপ|বানাও|তৈরি)/i.test(lower)) {
+  if (/(website|landing|store|shop|ecommerce|e-commerce|portfolio|dashboard|saas|game|pwa|portal|platform|app|video|animation|motion|reel|ওয়েবসাইট|ওয়েবসাইট|ড্যাশবোর্ড|ই-কমার্স|স্টোর|পোর্টফোলিও|গেম|অ্যাপ|ভিডিও|এনিমেশন|মোশন|বানাও|তৈরি)/i.test(lower) || mode === 'video') {
     baseTools.add('fetch_stock_images');
     baseTools.add('generate_image');
     baseTools.add('visual_qa_review');
@@ -2180,7 +2181,7 @@ function getSafeStreamableText(rawText: string): string {
 
 function isActionOrBuildPrompt(promptText: string): boolean {
   const lower = (promptText || '').toLowerCase();
-  return /(বানাও|তৈরি|ফিচার|যুক্ত|এ্যাড|অ্যাড|এডিট|ঠিক কর|ফিক্স|আপডেট|কোড|অ্যাপ|ওয়েবসাইট|ড্যাশবোর্ড|গেম|দেখো|চেক কর|সার্চ|build|create|add|feature|fix|update|implement|modify|edit|design|refactor|upgrade|debug|write|read|inspect|search|run|compile|deploy|clone|import)/i.test(lower);
+  return /(বানাও|তৈরি|ফিচার|যুক্ত|এ্যাড|অ্যাড|এডিট|ঠিক কর|ফিক্স|আপডেট|কোড|অ্যাপ|ওয়েবসাইট|ড্যাশবোর্ড|গেম|ভিডিও|এনিমেশন|মোশন|দেখো|চেক কর|সার্চ|build|create|add|feature|fix|update|implement|modify|edit|design|refactor|upgrade|debug|write|read|inspect|search|run|compile|deploy|clone|import)/i.test(lower);
 }
 
 function isCasualOrConversationalOnly(promptText: string): boolean {
@@ -2541,7 +2542,86 @@ async function ensureWorkspacePreviewEmitted(
   });
 }
 
-// Convert messages to standard OpenAI format (supports vision image_url on last user turn)
+function decodePdfStringEscapes(raw: string): string {
+  return raw
+    .replace(/\\n/g, '\n')
+    .replace(/\\r/g, ' ')
+    .replace(/\\t/g, ' ')
+    .replace(/\\\(/g, '(')
+    .replace(/\\\)/g, ')')
+    .replace(/\\\\/g, '\\')
+    .replace(/[^\x20-\x7E\n\r\t]/g, ' ');
+}
+
+function extractReadableTextFromPdfBase64(base64Data: string, indexLabel: number = 1): string {
+  try {
+    const cleanB64 = (base64Data || '').trim();
+    if (!cleanB64) return '';
+    // Limit decoding to ~10MB base64 so event loop stays responsive
+    const rawBuf = Buffer.from(cleanB64.slice(0, 14_000_000), 'base64');
+    const rawStr = rawBuf.toString('latin1');
+
+    const collectedChunks: string[] = [];
+    let streamCount = 0;
+    const streamRegex = /stream\r?\n([\s\S]*?)\r?\nendstream/g;
+    let match: RegExpExecArray | null;
+
+    const extractOperatorsFromChunk = (chunkText: string) => {
+      // Extract (...) Tj and [(...) 10 (...)] TJ operators
+      const tjRegex = /\(((?:\\.|[^\\)]){1,500})\)\s*Tj/g;
+      let tjMatch: RegExpExecArray | null;
+      while ((tjMatch = tjRegex.exec(chunkText)) !== null) {
+        const clean = decodePdfStringEscapes(tjMatch[1]).trim();
+        if (clean) collectedChunks.push(clean);
+      }
+      const tjArrayRegex = /\[([\s\S]{1,1500}?)\]\s*TJ/g;
+      let arrMatch: RegExpExecArray | null;
+      while ((arrMatch = tjArrayRegex.exec(chunkText)) !== null) {
+        const innerParts: string[] = [];
+        const innerParen = /\(((?:\\.|[^\\)]){1,300})\)/g;
+        let ip: RegExpExecArray | null;
+        while ((ip = innerParen.exec(arrMatch[1])) !== null) {
+          innerParts.push(decodePdfStringEscapes(ip[1]));
+        }
+        const joined = innerParts.join('').trim();
+        if (joined) collectedChunks.push(joined);
+      }
+    };
+
+    while ((match = streamRegex.exec(rawStr)) !== null && streamCount < 220) {
+      streamCount++;
+      const streamSlice = match[1];
+      const streamBuf = Buffer.from(streamSlice, 'latin1');
+      let decodedText = '';
+      try {
+        decodedText = zlib.inflateSync(streamBuf).toString('latin1');
+      } catch {
+        decodedText = streamSlice;
+      }
+      extractOperatorsFromChunk(decodedText);
+      if (collectedChunks.join(' ').length > 14000) break;
+    }
+
+    if (collectedChunks.length === 0) {
+      extractOperatorsFromChunk(rawStr);
+    }
+
+    const combined = collectedChunks
+      .join(' ')
+      .replace(/\s{2,}/g, ' ')
+      .trim()
+      .slice(0, 12000);
+
+    if (combined.length >= 20) {
+      return `\n\n[ATTACHED PDF #${indexLabel} EXTRACTED TEXT]:\n${combined}`;
+    }
+    return `\n\n[ATTACHED PDF #${indexLabel} NOTE]: A PDF file was attached, but it appears to contain scanned images or compressed/encoded fonts without plain extractable ASCII text. Acknowledge this or ask the user to use a Gemini API key for native visual PDF OCR if needed.`;
+  } catch {
+    return `\n\n[ATTACHED PDF #${indexLabel} NOTE]: A PDF file was attached but could not be parsed cleanly as plain text.`;
+  }
+}
+
+// Convert messages to standard OpenAI format (supports vision image_url for images and text extraction fallback for PDFs)
 function convertToOpenAIMessages(
   messages: any[],
   mode: string,
@@ -2556,20 +2636,31 @@ function convertToOpenAIMessages(
   for (let i = 0; i < safeMessages.length; i++) {
     const m = safeMessages[i];
     const isLastUser = i === safeMessages.length - 1 && m.role !== 'model' && m.role !== 'assistant';
-    const text = isLastUser && enrichedLastMessage
+    let text = isLastUser && enrichedLastMessage
       ? enrichedLastMessage
       : (m.parts?.[0]?.text || m.content || '');
     if (text) {
       if (isLastUser && lastMessageImages.length > 0) {
-        formatted.push({
-          role: 'user',
-          content: [
-            { type: 'text', text },
-            ...lastMessageImages
-              .filter(img => Boolean(img.dataUrl))
-              .map(img => ({ type: 'image_url', image_url: { url: img.dataUrl! } })),
-          ],
+        const pdfDocs = lastMessageImages.filter(
+          (att) => att.mimeType === 'application/pdf' || /\.pdf$/i.test(att.mimeType)
+        );
+        pdfDocs.forEach((pdf, idx) => {
+          text += extractReadableTextFromPdfBase64(pdf.data, idx + 1);
         });
+        const imageParts = lastMessageImages
+          .filter((img) => Boolean(img.dataUrl) && img.mimeType.startsWith('image/'))
+          .map((img) => ({ type: 'image_url', image_url: { url: img.dataUrl! } }));
+        if (imageParts.length > 0) {
+          formatted.push({
+            role: 'user',
+            content: [
+              { type: 'text', text },
+              ...imageParts,
+            ],
+          });
+        } else {
+          formatted.push({ role: 'user', content: text });
+        }
       } else {
         formatted.push({
           role: m.role === 'model' || m.role === 'assistant' ? 'assistant' : 'user',
@@ -4698,8 +4789,8 @@ ${contextNotes.join('\n')}
 Use the injected [CODEBASE DEPENDENCY GRAPH] and [LOCKED TYPE CONTRACTS] below; only call view_file on the exact file(s) you need to modify (skip package.json/vite.config.ts/index.html unless changing config) inside workspaces/${safeSessId}/ and finish with workspace_run(action: "build") to publish the production static preview to /projects/${safeSessId}/index.html (or action: "start" if server.ts exists).`;
         }
 
-        // Auto-inject compact Domain Design Brief when building/designing websites or apps
-        const designBrief = inferWebsiteDesignBrief(initialLastMessage, sessionId);
+        // Auto-inject compact Domain Design Brief when building/designing websites, apps, or video studios
+        const designBrief = inferWebsiteDesignBrief(initialLastMessage, sessionId, mode);
         if (designBrief) {
           lastMessage += `\n\n${designBrief}`;
         }
@@ -4893,7 +4984,7 @@ MANDATORY WEBSITE REPLICATION GUIDELINES:
     const sandboxLockSessionId =
       safeSessionId &&
       !targetsNexusInternals &&
-      (shouldUseModularArchitecture(initialLastMessage) || hasExistingSessionWorkspace)
+      (shouldUseModularArchitecture(initialLastMessage) || mode === 'video' || hasExistingSessionWorkspace)
         ? safeSessionId
         : undefined;
 
@@ -5125,7 +5216,9 @@ MANDATORY WEBSITE REPLICATION GUIDELINES:
         excludedKeyIds,
         reqStickyKeyId,
         {
-          requiresVision: lastMessageImages.length > 0,
+          requiresVision: lastMessageImages.some(
+            (att) => att.mimeType.startsWith('image/') || att.mimeType === 'application/pdf'
+          ),
           desiredTier: isActionOrBuildPrompt(initialLastMessage) ? 'architect' : undefined,
           estimatedTokens: estimateTokensFromPayload(lastMessage) + 1200,
         }

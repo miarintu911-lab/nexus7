@@ -57,14 +57,19 @@ For any non-trivial coding or app-building request, FIRST call \`omo_coordinate\
     ? `projects/${options.sessionId.replace(/[^a-zA-Z0-9_-]/g, '_')}/index.html`
     : 'projects/index.html';
 
+  const videoModeSection =
+    mode === 'video'
+      ? `\n[VIDEO STUDIO MODE ACTIVE]: Build a Remotion-style interactive Audio + Video + Text Motion Studio inside \`workspaces/${options.sessionId || 'app'}/\`! Call \`read_skill("motion-video-studio")\` + \`workspace_init(template: 'react-vite')\`, render a 60fps HTML5 Canvas + kinetic typography + Web Audio API (\`createMediaStreamDestination\`) synth/music/custom-audio mixer, mux Video + Audio tracks into \`MediaRecorder\` \`.webm\` export, include timeline scrubbing & scene/text editors, and publish via \`workspace_run(action: 'build')\`.`
+      : '';
+
   if (options.compactForFreeApi) {
     const compactMultiAgentLine = options.multiAgent
       ? `\n6. MULTI-AGENT (OmO): When \`omo_coordinate\` is available on a new multi-file build, call it once before writing files so Architect/Executor/Reviewer align (skip for simple edits).`
       : '';
-    return `You are Nexus AI, a senior full-stack software engineer & product designer following the exact Google AI Studio Build workflow. Mode: ${mode}${personaSection}${customSection}${outputFormatSection}
+    return `You are Nexus AI, a senior full-stack software engineer & product designer following the exact Google AI Studio Build workflow. Mode: ${mode}${personaSection}${customSection}${outputFormatSection}${videoModeSection}
 
 CORE 5-PHASE AUTONOMOUS WORKFLOW:
-1. SKILL CHECK & PLAN: Before modifying code on a new task, call \`read_skill\` when relevant (e.g. \`frontend-design\`, \`ui-cookbook\`, \`firebase-integration\`, \`github-import-migration\`, \`debugging-error-analysis\`) and call \`plan(steps: [...])\` for multi-file builds.
+1. SKILL CHECK & PLAN: Before modifying code on a new task, call \`read_skill\` when relevant (e.g. \`frontend-design\`, \`motion-video-studio\`, \`ui-cookbook\`, \`firebase-integration\`, \`github-import-migration\`, \`debugging-error-analysis\`) and call \`plan(steps: [...])\` for multi-file builds.
 2. ZERO-READ NEW APPS VS READ-BEFORE-EDIT:
    - If cloning a GitHub repo ("gh repo clone owner/repo" / github.com URL), call \`github_clone(repo, sessionId: "${options.sessionId || 'app'}", autoStart: true)\` immediately.
    - If building a NEW website/app in a fresh session (\`[GREENFIELD ZERO-READ FAST-PATH]\`), NEVER call \`list_dir\`, \`analyze_project\`, or \`view_file\` on root or starter files—go straight to \`workspace_init\` + \`write_to_file\`.
@@ -80,7 +85,7 @@ CORE 5-PHASE AUTONOMOUS WORKFLOW:
 
   return `You are the coding engine behind Google AI Studio Build. You act as a senior software engineer: users describe what they want in natural language, and you create, modify, debug, and deploy complete applications. You are the primary engineer responsible for the user's task — building a new codebase, changing an existing one, or answering a question.
 
-Current Mode: ${mode}${personaSection}${customSection}${outputFormatSection}${multiAgentSection}
+Current Mode: ${mode}${personaSection}${customSection}${outputFormatSection}${multiAgentSection}${videoModeSection}
 
 ================================================================================
 # WHEN TO CALL TOOLS VS REPLY DIRECTLY
@@ -198,10 +203,11 @@ Phase 6: Scannable Structured Reporting
 - Provide concise, scannable completion summaries without pasting source files into chat.`;
 }
 
-export function inferWebsiteDesignBrief(promptText: string, sessionId?: string): string | null {
+export function inferWebsiteDesignBrief(promptText: string, sessionId?: string, mode?: string): string | null {
   const lower = (promptText || '').toLowerCase();
   const isRepoOrInternal = /(gh\s+repo\s+clone|git\s+clone|github\.com\/|ক্লোন|server\/apiOrchestrator|src\/components\/GoogleAIStudioCoderView)/i.test(lower);
-  const isWebsiteRequest = !isRepoOrInternal && /(website|web\s*app|landing\s*page|ecommerce|e-commerce|store|shop|dashboard|portfolio|saas|agency|blog|restaurant|cafe|hospital|clinic|school|lms|game|pwa|redesign|portal|platform|site|ui|ওয়েবসাইট|ওয়েবসাইট|সাইট|ল্যান্ডিং|পোর্টফোলিও|ড্যাশবোর্ড|ই-কমার্স|দোকান|স্টোর|অ্যাপ|গেম|প্ল্যাটফর্ম|পোর্টাল)/i.test(lower);
+  const isVideoIntent = mode === 'video' || /(video|animation|motion|reel|explainer|shorts|ভিডিও|এনিমেশন|মোশন)/i.test(lower);
+  const isWebsiteRequest = !isRepoOrInternal && (isVideoIntent || /(website|web\s*app|landing\s*page|ecommerce|e-commerce|store|shop|dashboard|portfolio|saas|agency|blog|restaurant|cafe|hospital|clinic|school|lms|game|pwa|redesign|portal|platform|site|ui|ওয়েবসাইট|ওয়েবসাইট|সাইট|ল্যান্ডিং|পোর্টফোলিও|ড্যাশবোর্ড|ই-কমার্স|দোকান|স্টোর|অ্যাপ|গেম|প্ল্যাটফর্ম|পোর্টাল)/i.test(lower));
   if (!isWebsiteRequest) return null;
 
   const isBengali = /[\u0980-\u09FF]/.test(promptText);
@@ -212,7 +218,12 @@ export function inferWebsiteDesignBrief(promptText: string, sessionId?: string):
   let palette = 'Crisp off-white/slate neutral canvas (60%), subtle hairline structural cards (30%), focused cobalt/emerald CTA accent (10%)';
   let sections = '3-zone single-line header + multi-page nav, asymmetric editorial hero + visual proof, 4-5 rich interactive feature/catalog/analytics sections with live search & filtering, detail modal/drawer, testimonials/FAQ, real form/CRUD state, structured multi-column footer';
 
-  if (/(ecommerce|e-commerce|store|shop|fashion|product|cart|checkout|ই-কমার্স|স্টোর|দোকান|শপ)/i.test(lower)) {
+  if (isVideoIntent) {
+    domain = 'Remotion-Style Audio + Video + Kinetic Text Motion Studio';
+    fonts = isBengali ? 'Hind Siliguri + Space Grotesk + JetBrains Mono' : 'Space Grotesk + DM Sans + JetBrains Mono';
+    palette = 'Dark studio canvas (#0a0b10), crisp timeline surface (#13151f), 1px hairline borders, vivid cobalt/cyan playhead & render accents';
+    sections = 'Studio Topbar (16:9 / 9:16 aspect toggle, Export WebM Audio+Video button) -> Central 60fps HTML5 Canvas Stage -> Synchronized Web Audio Synth & Custom Audio Mixer -> Multi-Scene Scrubbing Timeline + Kinetic Text/Style/Audio Preset Inspector';
+  } else if (/(ecommerce|e-commerce|store|shop|fashion|product|cart|checkout|ই-কমার্স|স্টোর|দোকান|শপ)/i.test(lower)) {
     domain = 'Full-Scale E-Commerce Storefront';
     fonts = isBengali ? 'Hind Siliguri + Fraunces + DM Sans' : 'Fraunces + DM Sans + JetBrains Mono (tabular-nums)';
     palette = 'Warm alabaster/chalk canvas or deep espresso dark canvas with crisp product photography and single high-contrast accent CTA';
@@ -243,7 +254,8 @@ export function inferWebsiteDesignBrief(promptText: string, sessionId?: string):
   const finalPreviewStep = needsExpressBackend
     ? `workspace_run(action: "start") -> /w/${safeId}/`
     : `workspace_run(action: "build") -> /projects/${safeId}/index.html`;
-  const architectureTrack = `SESSION-SCOPED MODULAR UI/UX BUILD (12-25+ Files): 1) Call plan(steps:[...]) & read_skill("frontend-design") -> 2) Call workspace_init(sessionId: "${safeId}", template: "${needsExpressBackend ? 'fullstack-express' : 'react-vite'}"), replace ALL starter template text, write workspaces/${safeId}/src/types.ts, src/data/seed.ts, src/data/analytics.ts${firebaseFrag} -> 3) Batch parallel write_to_file calls for src/hooks/useWorkspaceState.ts, 8-14+ modular components in src/components/*.tsx, 3-5+ pages in src/pages/*.tsx, src/App.tsx${wantsFirebase ? ' (wrapped in <FirebaseProvider>)' : ''}${needsExpressBackend ? ', server/routes.ts, server.ts' : ''} -> 4) Call ${finalPreviewStep}`;
+  const skillToRead = isVideoIntent ? 'motion-video-studio' : 'frontend-design';
+  const architectureTrack = `SESSION-SCOPED MODULAR UI/UX BUILD (12-25+ Files): 1) Call plan(steps:[...]) & read_skill("${skillToRead}") -> 2) Call workspace_init(sessionId: "${safeId}", template: "${needsExpressBackend ? 'fullstack-express' : 'react-vite'}"), replace ALL starter template text, write workspaces/${safeId}/src/types.ts, src/data/seed.ts, src/data/analytics.ts${firebaseFrag} -> 3) Batch parallel write_to_file calls for src/hooks/useWorkspaceState.ts, 8-14+ modular components in src/components/*.tsx, 3-5+ pages in src/pages/*.tsx, src/App.tsx${wantsFirebase ? ' (wrapped in <FirebaseProvider>)' : ''}${needsExpressBackend ? ', server/routes.ts, server.ts' : ''} -> 4) Call ${finalPreviewStep}`;
 
   return `[LARGE WEBSITE DESIGN & ARCHITECTURE BRIEF]:
 - Detected Domain: ${domain}
@@ -773,7 +785,13 @@ export function prepareGeminiHistoryAndLastMessage(messages: any[]): SanitizedGe
 
     if (!text.trim()) {
       if (images.length > 0) {
-        text = 'Please inspect the attached screenshot/design image and implement or fix what is shown.';
+        const hasPdf = images.some((img) => img.mimeType === 'application/pdf');
+        const hasImage = images.some((img) => img.mimeType.startsWith('image/'));
+        if (hasPdf && !hasImage) {
+          text = 'Please read and analyze the attached PDF document and summarize or build what is requested.';
+        } else {
+          text = 'Please inspect the attached screenshot/design file and implement or fix what is shown.';
+        }
       } else if (m.imageUrl) {
         text = `[Attached Image: ${m.imageUrl}]`;
       } else if (role === 'model') {

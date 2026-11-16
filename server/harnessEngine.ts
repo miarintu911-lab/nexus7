@@ -419,8 +419,8 @@ export function isExplicitFirebasePrompt(promptText: string): boolean {
 export function shouldUseModularArchitecture(promptText: string): boolean {
   const lower = (promptText || '').toLowerCase();
   if (isGitHubClonePrompt(promptText) || /(server\/|src\/|package\.json|apiOrchestrator|GoogleAIStudioCoderView)/i.test(lower)) return false;
-  const isNewAppCreation = /(build|create|make|design|develop|website|web\s*app|landing\s*page|dashboard|saas|store|shop|ecommerce|e-commerce|portfolio|crm|erp|lms|portal|platform|site|game|arcade|বানা|তৈরি|ওয়েবসাইট|ওয়েবসাইট|সাইট|ড্যাশবোর্ড|ই-কমার্স|পোর্টফোলিও|গেম|প্ল্যাটফর্ম|পোর্টাল)/i.test(lower);
-  const isTargetedEditOrFix = /^(?:fix|debug|edit|update|modify|refactor|add\s+a?\s*feature|ঠিক|ফিক্স|এডিট|আপডেট|যুক্ত)/i.test(lower.trim()) && !/(website|landing|store|dashboard|new\s+app|নতুন\s*অ্যাপ|ওয়েবসাইট|ওয়েবসাইট)/i.test(lower);
+  const isNewAppCreation = /(build|create|make|design|develop|website|web\s*app|landing\s*page|dashboard|saas|store|shop|ecommerce|e-commerce|portfolio|crm|erp|lms|portal|platform|site|game|arcade|video|animation|motion|reel|explainer|বানা|তৈরি|ওয়েবসাইট|ওয়েবসাইট|সাইট|ড্যাশবোর্ড|ই-কমার্স|পোর্টফোলিও|গেম|প্ল্যাটফর্ম|পোর্টাল|ভিডিও|এনিমেশন|মোশন)/i.test(lower);
+  const isTargetedEditOrFix = /^(?:fix|debug|edit|update|modify|refactor|add\s+a?\s*feature|ঠিক|ফিক্স|এডিট|আপডেট|যুক্ত)/i.test(lower.trim()) && !/(website|landing|store|dashboard|new\s+app|নতুন\s*অ্যাপ|ওয়েবসাইট|ওয়েবসাইট|ভিডিও|এনিমেশন)/i.test(lower);
   if (isTargetedEditOrFix) return false;
   return isNewAppCreation;
 }

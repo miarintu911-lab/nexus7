@@ -50,7 +50,9 @@ import {
   Share2,
   FolderArchive,
   ScrollText,
-  Rocket
+  Rocket,
+  Film,
+  FileText
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -190,7 +192,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(0);
   const [previewUrl, setPreviewUrl] = useState('/projects/index.html');
-  const [activeMode, setActiveMode] = useState<'general' | 'coding' | 'image' | 'search'>('coding');
+  const [activeMode, setActiveMode] = useState<'general' | 'coding' | 'image' | 'search' | 'video'>('coding');
   const [showModeMenu, setShowModeMenu] = useState(false);
   const [activeCoderTab, setActiveCoderTab] = useState<'chat' | 'preview' | 'artifacts'>('chat');
   const [isWorkingExpanded, setIsWorkingExpanded] = useState(false);
@@ -235,6 +237,33 @@ export default function App() {
   const [isSubmittingAnswer, setIsSubmittingAnswer] = useState(false);
   const [pendingFirebaseSetup, setPendingFirebaseSetup] = useState<PendingFirebaseSetupRequest | null>(null);
   const [attachedImage, setAttachedImage] = useState<{ dataUrl: string; mimeType: string; name: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileAttach = (file?: File | null) => {
+    if (!file) return;
+    const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name || '');
+    const isImg = file.type.startsWith('image/') || /\.(png|jpe?g|webp|gif|bmp|svg)$/i.test(file.name || '');
+    if (!isPdf && !isImg) {
+      setError('শুধুমাত্র ছবি (PNG/JPG/WEBP) অথবা PDF ফাইল আপলোড করা যাবে।');
+      return;
+    }
+    if (file.size > 15 * 1024 * 1024) {
+      setError('ফাইলের সাইজ ১৫ মেগাবাইটের (15 MB) কম হতে হবে।');
+      return;
+    }
+    setError(null);
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setAttachedImage({
+          dataUrl: reader.result,
+          mimeType: isPdf ? 'application/pdf' : (file.type || 'image/png'),
+          name: file.name || (isPdf ? 'document.pdf' : 'image.png'),
+        });
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   const isWorkspacePreviewUrl = (url?: string | null) =>
     Boolean(url && /(?:^|\/)w\/[^/]+/.test(url));
@@ -1093,7 +1122,12 @@ export default function App() {
 
     const runToken = ++activeRunTokenRef.current;
 
-    const textToSend = rawText.trim() || 'অনুগ্রহ করে সংযুক্ত স্ক্রিনশট/ছবিটি বিশ্লেষণ করে সেই অনুযায়ী UI বা বাগ ফিক্স তৈরি করো।';
+    const isAttachedPdf = imageToAttach?.mimeType === 'application/pdf' || imageToAttach?.dataUrl?.startsWith('data:application/pdf');
+    const textToSend = rawText.trim() || (
+      isAttachedPdf
+        ? `অনুগ্রহ করে সংযুক্ত PDF ডকুমেন্টটি (${imageToAttach?.name || 'document.pdf'}) বিশ্লেষণ করে বিস্তারিত উত্তর বা প্রয়োজনীয় কাজ করো।`
+        : 'অনুগ্রহ করে সংযুক্ত স্ক্রিনশট/ছবিটি বিশ্লেষণ করে সেই অনুযায়ী UI বা বাগ ফিক্স তৈরি করো।'
+    );
     const messageParts: any[] = [{ text: textToSend }];
     if (imageToAttach) {
       const base64Data = imageToAttach.dataUrl.includes(',')
@@ -1663,10 +1697,27 @@ export default function App() {
                   </div>
                 )}
                 <div className={cn(
-                  "px-4 py-3 rounded-2xl text-sm leading-relaxed",
+                  "px-4 py-3 rounded-2xl text-sm leading-relaxed space-y-2",
                   m.role === 'user' ? "bg-slate-800 text-white rounded-tr-none" : "bg-slate-900 border border-slate-800 rounded-tl-none"
                 )}>
-                  {m.parts[0].text}
+                  {m.imageDataUrl && (
+                    m.imageDataUrl.startsWith('data:application/pdf') ||
+                    m.parts?.[1]?.inlineData?.mimeType === 'application/pdf' ||
+                    /\.pdf$/i.test(m.imageName || '') ? (
+                      <div className="inline-flex items-center gap-2.5 px-3 py-2 rounded-xl bg-slate-900/90 border border-rose-500/30 text-slate-100">
+                        <div className="w-8 h-8 rounded-lg bg-rose-500/15 border border-rose-500/30 flex items-center justify-center flex-shrink-0">
+                          <FileText className="w-4 h-4 text-rose-400" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-xs font-semibold truncate max-w-[200px]">{m.imageName || 'Document.pdf'}</div>
+                          <div className="text-[10px] text-rose-300 font-bold uppercase tracking-wider">PDF Document</div>
+                        </div>
+                      </div>
+                    ) : (
+                      <img src={m.imageDataUrl} alt={m.imageName || 'Attached image'} className="rounded-xl max-h-56 border border-slate-700/70 object-contain" />
+                    )
+                  )}
+                  <div>{m.parts[0].text}</div>
                 </div>
                 {m.imageUrl && (
                   <img src={m.imageUrl} className="rounded-xl w-full max-w-sm border border-slate-800 shadow-2xl" alt="Generated" />
@@ -1832,11 +1883,61 @@ export default function App() {
         {/* Input */}
         <div className="p-6 bg-gradient-to-t from-[#020617] via-[#020617] to-transparent">
           <div className="max-w-4xl mx-auto relative flex flex-col gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,application/pdf,.pdf"
+              className="hidden"
+              onChange={(e) => {
+                handleFileAttach(e.target.files?.[0]);
+                e.target.value = '';
+              }}
+            />
+
+            {attachedImage && (
+              <div className="flex items-center gap-2 px-1">
+                <div className="relative inline-flex items-center gap-2.5 bg-slate-900/95 border border-slate-700/80 rounded-xl p-1.5 pr-8 shadow-lg">
+                  {attachedImage.mimeType === 'application/pdf' || attachedImage.dataUrl.startsWith('data:application/pdf') ? (
+                    <div className="w-10 h-10 rounded-lg bg-rose-500/15 border border-rose-500/30 flex items-center justify-center flex-shrink-0">
+                      <FileText className="w-5 h-5 text-rose-400" />
+                    </div>
+                  ) : (
+                    <img
+                      src={attachedImage.dataUrl}
+                      alt={attachedImage.name}
+                      className="w-10 h-10 rounded-lg object-cover border border-slate-800"
+                    />
+                  )}
+                  <div className="min-w-0">
+                    <div className="text-xs font-medium text-slate-200 max-w-[180px] truncate">{attachedImage.name}</div>
+                    <div className="text-[10px] text-slate-400 uppercase font-semibold">
+                      {attachedImage.mimeType === 'application/pdf' ? 'PDF সংযুক্ত' : 'ছবি সংযুক্ত'}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setAttachedImage(null)}
+                    className="absolute top-1.5 right-1.5 p-1 rounded-full bg-slate-800 hover:bg-rose-500/30 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                    title="ফাইল সরান"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="relative flex items-center bg-slate-900/80 border border-slate-800 rounded-2xl focus-within:border-indigo-500 transition-all shadow-xl">
               <div className="flex items-center gap-1 px-3 py-2 border-r border-slate-800">
-                <button 
-                  className="p-2 text-slate-400 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-xl transition-all group/upload"
-                  title="Upload File"
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className={cn(
+                    "p-2 rounded-xl transition-all group/upload cursor-pointer",
+                    attachedImage
+                      ? "bg-indigo-600/20 text-indigo-400"
+                      : "text-slate-400 hover:text-indigo-400 hover:bg-indigo-500/10"
+                  )}
+                  title="ছবি বা PDF আপলোড করুন (Upload Image / PDF)"
                 >
                   <Plus className="w-5 h-5 group-hover/upload:scale-110 transition-transform" />
                 </button>
@@ -1845,7 +1946,7 @@ export default function App() {
                   <button 
                     onClick={() => setShowModeMenu(!showModeMenu)}
                     className={cn(
-                      "p-2 rounded-xl transition-all flex items-center gap-2",
+                      "p-2 rounded-xl transition-all flex items-center gap-2 cursor-pointer",
                       activeMode === 'general' 
                         ? "text-slate-400 hover:text-indigo-400 hover:bg-indigo-500/10" 
                         : "bg-indigo-600/20 text-indigo-400"
@@ -1855,6 +1956,7 @@ export default function App() {
                     {(activeMode as string) === 'coding' && <Code className="w-5 h-5" />}
                     {activeMode === 'image' && <ImageIcon className="w-5 h-5" />}
                     {activeMode === 'search' && <Search className="w-5 h-5" />}
+                    {activeMode === 'video' && <Film className="w-5 h-5" />}
                     {activeMode === 'general' && <Sparkles className="w-5 h-5" />}
                     <span className="text-xs font-bold hidden sm:block capitalize">{activeMode}</span>
                   </button>
@@ -1875,6 +1977,7 @@ export default function App() {
                           { id: 'general', icon: Sparkles, label: 'General Assistant', desc: 'Chat & guidance' },
                           { id: 'image', icon: ImageIcon, label: 'Image Artist', desc: 'Generate visuals' },
                           { id: 'search', icon: Search, label: 'Web Explorer', desc: 'Live search' },
+                          { id: 'video', icon: Film, label: 'Video Studio', desc: 'Audio, video & kinetic text' },
                         ].map((mode) => (
                           <button
                             key={mode.id}
@@ -1883,7 +1986,7 @@ export default function App() {
                               setShowModeMenu(false);
                             }}
                             className={cn(
-                              "w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all group/item",
+                              "w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all group/item cursor-pointer",
                               (activeMode as string) === mode.id 
                                 ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20" 
                                 : "text-slate-400 hover:bg-slate-800/50 hover:text-white"
@@ -1910,11 +2013,24 @@ export default function App() {
               <input 
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                onPaste={(e) => {
+                  const files = Array.from(e.clipboardData?.files || []);
+                  const candidate = files.find((f) => f.type.startsWith('image/') || f.type === 'application/pdf');
+                  if (candidate) {
+                    e.preventDefault();
+                    handleFileAttach(candidate);
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && (input.trim() || attachedImage)) {
+                    handleSend();
+                  }
+                }}
                 placeholder={
                   (activeMode as string) === 'coding' ? "যেকোনো ওয়েবসাইটের লিংক (URL) অথবা অ্যাপের আইডিয়া লিখুন..." :
                   activeMode === 'image' ? "ছবির বিস্তারিত ডেসক্রিপশন লিখুন..." :
                   activeMode === 'search' ? "ওয়েব বা ডকস সার্চ করতে লিখুন..." :
+                  activeMode === 'video' ? "কোন বিষয়ে অডিও, ভিডিও ও টেক্সট এনিমেশন বানাবেন লিখুন..." :
                   "ওয়েবসাইট লিংক, বার্তা বা প্রম্পট লিখুন..."
                 }
                 className="flex-1 bg-transparent px-4 py-4 focus:outline-none text-slate-200 placeholder:text-slate-500"
@@ -1933,7 +2049,7 @@ export default function App() {
                 )}
                 <button 
                   onClick={() => handleSend()}
-                  disabled={!input.trim() || cooldown > 0}
+                  disabled={(!input.trim() && !attachedImage) || cooldown > 0}
                   className="p-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:hover:bg-indigo-600 rounded-xl transition-all shadow-lg shadow-indigo-600/20 flex items-center justify-center min-w-[44px] cursor-pointer"
                   title={isLoading ? "আগের রিকোয়েস্ট বাতিল করে নতুন মেসেজ পাঠান" : "Send"}
                 >

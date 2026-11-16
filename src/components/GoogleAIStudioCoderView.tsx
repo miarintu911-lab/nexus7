@@ -44,7 +44,8 @@ import {
   Loader2,
   Crosshair,
   Rocket,
-  Flame
+  Flame,
+  FileText
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -512,14 +513,17 @@ export const GoogleAIStudioCoderView: React.FC<GoogleAIStudioCoderViewProps> = (
   };
 
   const handleImageFileSelect = (file?: File | null) => {
-    if (!file || !file.type.startsWith('image/') || !setAttachedImage) return;
+    if (!file || !setAttachedImage) return;
+    const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name || '');
+    const isImg = file.type.startsWith('image/') || /\.(png|jpe?g|webp|gif|bmp|svg)$/i.test(file.name || '');
+    if ((!isPdf && !isImg) || file.size > 15 * 1024 * 1024) return;
     const reader = new FileReader();
     reader.onload = () => {
       if (typeof reader.result === 'string') {
         setAttachedImage({
           dataUrl: reader.result,
-          mimeType: file.type || 'image/png',
-          name: file.name || 'screenshot.png',
+          mimeType: isPdf ? 'application/pdf' : (file.type || 'image/png'),
+          name: file.name || (isPdf ? 'document.pdf' : 'screenshot.png'),
         });
       }
     };
@@ -1092,11 +1096,25 @@ export const GoogleAIStudioCoderView: React.FC<GoogleAIStudioCoderViewProps> = (
                       <div className="flex justify-end">
                         <div className="bg-[#242529] border border-slate-800/80 rounded-2xl p-4 text-slate-100 text-sm max-w-xl leading-relaxed shadow-md space-y-2 select-text">
                           {m.imageDataUrl && (
-                            <img
-                              src={m.imageDataUrl}
-                              alt={m.imageName || 'Attached screenshot'}
-                              className="max-h-48 rounded-xl border border-slate-700/70 object-contain"
-                            />
+                            m.imageDataUrl.startsWith('data:application/pdf') ||
+                            m.parts?.[1]?.inlineData?.mimeType === 'application/pdf' ||
+                            /\.pdf$/i.test(m.imageName || '') ? (
+                              <div className="inline-flex items-center gap-2.5 px-3 py-2 rounded-xl bg-[#18191d] border border-rose-500/30">
+                                <div className="w-8 h-8 rounded-lg bg-rose-500/15 border border-rose-500/30 flex items-center justify-center flex-shrink-0">
+                                  <FileText className="w-4 h-4 text-rose-400" />
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="text-xs font-semibold text-slate-200 truncate max-w-[200px]">{m.imageName || 'Document.pdf'}</div>
+                                  <div className="text-[10px] text-rose-300 font-bold uppercase tracking-wider">PDF Document</div>
+                                </div>
+                              </div>
+                            ) : (
+                              <img
+                                src={m.imageDataUrl}
+                                alt={m.imageName || 'Attached screenshot'}
+                                className="max-h-48 rounded-xl border border-slate-700/70 object-contain"
+                              />
+                            )
                           )}
                           <div>{m.parts[0]?.text}</div>
                         </div>
@@ -1168,17 +1186,23 @@ export const GoogleAIStudioCoderView: React.FC<GoogleAIStudioCoderViewProps> = (
                 {attachedImage && (
                   <div className="flex items-center gap-2 px-1.5 pt-1">
                     <div className="relative inline-flex items-center gap-2 bg-[#131314] border border-slate-700 rounded-xl p-1.5 pr-7">
-                      <img
-                        src={attachedImage.dataUrl}
-                        alt={attachedImage.name}
-                        className="w-10 h-10 rounded-lg object-cover border border-slate-800"
-                      />
+                      {attachedImage.mimeType === 'application/pdf' || attachedImage.dataUrl.startsWith('data:application/pdf') ? (
+                        <div className="w-10 h-10 rounded-lg bg-rose-500/15 border border-rose-500/30 flex items-center justify-center flex-shrink-0">
+                          <FileText className="w-5 h-5 text-rose-400" />
+                        </div>
+                      ) : (
+                        <img
+                          src={attachedImage.dataUrl}
+                          alt={attachedImage.name}
+                          className="w-10 h-10 rounded-lg object-cover border border-slate-800"
+                        />
+                      )}
                       <div className="text-[11px] text-slate-300 max-w-[160px] truncate">{attachedImage.name}</div>
                       <button
                         type="button"
                         onClick={() => setAttachedImage?.(null)}
                         className="absolute top-1 right-1 p-0.5 rounded-full bg-slate-800 hover:bg-rose-500/30 text-slate-400 hover:text-white cursor-pointer"
-                        title="Remove image"
+                        title="ফাইল সরান"
                       >
                         <X className="w-3 h-3" />
                       </button>
@@ -1189,7 +1213,7 @@ export const GoogleAIStudioCoderView: React.FC<GoogleAIStudioCoderViewProps> = (
                 <input
                   ref={imageInputRef}
                   type="file"
-                  accept="image/*"
+                  accept="image/*,application/pdf,.pdf"
                   className="hidden"
                   onChange={(e) => {
                     handleImageFileSelect(e.target.files?.[0]);
@@ -1274,7 +1298,7 @@ export const GoogleAIStudioCoderView: React.FC<GoogleAIStudioCoderViewProps> = (
                             ? "bg-sky-500/20 text-sky-300"
                             : "text-slate-400 hover:text-white hover:bg-slate-800"
                         )}
-                        title="স্ক্রিনশট বা UI ডিজাইন আপলোড করুন (Vision Input)"
+                        title="ছবি বা PDF আপলোড করুন (Image / PDF Input)"
                       >
                         <ImagePlus className="w-4 h-4" />
                       </button>
