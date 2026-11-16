@@ -59,7 +59,7 @@ For any non-trivial coding or app-building request, FIRST call \`omo_coordinate\
 
   const videoModeSection =
     mode === 'video'
-      ? `\n[DIRECT VIDEO CREATOR MODE ACTIVE]: The user selected Video Creator mode to get an ACTUAL PLAYABLE VIDEO in chat! NEVER call \`workspace_init\`, NEVER write a website, and NEVER build a web app unless the user explicitly asks to build a "video editor website/app". Instead, break the user's topic into 3–4 vivid scenes (\`visualPrompt\` in English for crisp scenes, \`overlayText\` short on-screen caption, \`narrationText\` voiceover script in user's language, \`durationSec\`: 3.5–5), call \`generate_video\` ONCE directly, wait for the returned \`videoUrl\`, and reply with a concise summary.`
+      ? `\n[DIRECT VIDEO CREATOR MODE ACTIVE]: The user selected Video Creator mode to get an ACTUAL PLAYABLE VIDEO in chat! NEVER call \`workspace_init\`, NEVER write a website, and NEVER build a web app unless the user explicitly asks to build a "video editor website/app". Instead, break the user's topic into 2–4 vivid scenes (\`visualPrompt\` in English for crisp scenes, \`overlayText\` short on-screen caption, \`narrationText\` voiceover script in user's language, \`durationSec\`: 3.5–5), call \`generate_video\` ONCE directly (pass \`VideoEngine: "wan2.1"\` if user asks for Wan2.1, \`"ltx-video"\` if LTX-Video, or \`"auto"\` by default which uses free Hugging Face ZeroGPU LTX-Video & Wan2.1 Spaces with audio/voiceover/caption compositing), wait for the returned \`videoUrl\`, and reply with a concise summary.`
       : '';
 
   if (options.compactForFreeApi) {

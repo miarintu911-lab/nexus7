@@ -94,6 +94,7 @@ export interface ToolExecutionContext {
   signal?: AbortSignal;
   geminiApiKey?: string;
   geminiModel?: string;
+  huggingfaceApiKey?: string;
   compactMode?: boolean;
   readFiles?: Set<string>;
   llmInvoker?: (systemPrompt: string, userPrompt: string) => Promise<string>;
@@ -651,7 +652,7 @@ const generateImageTool: FunctionDeclaration = {
 
 const generateVideoTool: FunctionDeclaration = {
   name: "generate_video",
-  description: "Generate a real playable MP4 video directly in chat with synchronized spoken voiceover audio (Bengali/English), ambient background music, Ken Burns motion visuals, and crisp on-screen text captions. Call this directly whenever the user wants a video created (instead of building a website).",
+  description: "Generate a real playable MP4 video directly in chat using free Hugging Face ZeroGPU AI video Spaces (LTX-Video & Wan2.1) with synchronized spoken voiceover audio (Bengali/English), ambient background music, crisp on-screen text captions, and automatic Ken Burns fallback. Call this directly whenever the user wants a video created (instead of building a website).",
   parameters: {
     type: Type.OBJECT,
     properties: {
@@ -659,6 +660,7 @@ const generateVideoTool: FunctionDeclaration = {
       AspectRatio: { type: Type.STRING, enum: ["16:9", "9:16", "1:1"], description: "16:9 landscape, 9:16 Reels/Shorts, or 1:1 square." },
       AudioMood: { type: Type.STRING, enum: ["cinematic", "upbeat", "ambient", "none"], description: "Background music mood." },
       VoiceLanguage: { type: Type.STRING, enum: ["auto", "bn", "en", "none"], description: "Voiceover language (auto detects Bengali vs English)." },
+      VideoEngine: { type: Type.STRING, enum: ["auto", "ltx-video", "wan2.1", "ffmpeg-studio"], description: "Video generator engine: 'auto' (tries free HuggingFace ZeroGPU LTX-Video -> Wan2.1 -> ffmpeg fallback), 'ltx-video', 'wan2.1', or 'ffmpeg-studio'." },
       Scenes: {
         type: Type.ARRAY,
         description: "2 to 5 sequential scenes defining visuals, voiceover audio narration, and short on-screen caption text.",
@@ -3160,7 +3162,7 @@ export async function executeServerTool(
 
       case 'generate_video': {
         let geminiKey = execCtx?.geminiApiKey || process.env.GEMINI_API_KEY;
-        let hfKey = process.env.HF_TOKEN || process.env.HUGGINGFACE_API_KEY;
+        let hfKey = execCtx?.huggingfaceApiKey || process.env.HF_TOKEN || process.env.HUGGINGFACE_API_KEY;
         try {
           const rawSecrets = await fs.readFile(path.resolve(process.cwd(), '.secrets.json'), 'utf-8');
           const list = JSON.parse(rawSecrets);
@@ -3185,6 +3187,7 @@ export async function executeServerTool(
           aspectRatio: (args.AspectRatio || args.aspectRatio || '16:9') as any,
           audioMood: (args.AudioMood || args.audioMood || 'cinematic') as any,
           voiceLanguage: (args.VoiceLanguage || args.voiceLanguage || 'auto') as any,
+          videoEngine: (args.VideoEngine || args.videoEngine || 'auto') as any,
           geminiApiKey: geminiKey,
           huggingfaceApiKey: hfKey,
           pollinationsApiKey: process.env.POLLINATIONS_API_KEY,

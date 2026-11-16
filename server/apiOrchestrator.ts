@@ -5002,6 +5002,11 @@ MANDATORY WEBSITE REPLICATION GUIDELINES:
         ? safeSessionId
         : undefined;
 
+    const activeHfKey =
+      activePool.find(k => k.provider === 'huggingface' && k.isActive && k.apiKey)?.apiKey ||
+      process.env.HF_TOKEN ||
+      process.env.HUGGINGFACE_API_KEY;
+
     const buildExecCtx = (
       invoker: (sys: string, usr: string) => Promise<string>,
       geminiCreds?: { apiKey: string; model: string }
@@ -5011,6 +5016,7 @@ MANDATORY WEBSITE REPLICATION GUIDELINES:
       readFiles: sharedProgress.readFiles,
       geminiApiKey: geminiCreds?.apiKey,
       geminiModel: geminiCreds?.model,
+      huggingfaceApiKey: activeHfKey,
       llmInvoker: invoker,
       signal,
       allowInteractiveFirebasePrompt:
